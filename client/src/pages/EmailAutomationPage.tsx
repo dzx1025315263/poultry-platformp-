@@ -16,8 +16,9 @@ import { useState, useMemo } from "react";
 import { getLoginUrl } from "@/const";
 import {
   Mail, Send, Clock, BarChart3, FlaskConical, Zap, Eye, MessageSquare,
-  Plus, Trash2, Play, Calendar, TrendingUp, ArrowRight
+  Plus, Trash2, Play, Calendar, TrendingUp, ArrowRight, Braces
 } from "lucide-react";
+import { detectUsedVariables } from "@shared/emailTemplateVars";
 
 export default function EmailAutomationPage() {
   const { isAuthenticated } = useAuth();
@@ -246,6 +247,7 @@ export default function EmailAutomationPage() {
                     const openRateB = totalB > 0 ? ((openB / totalB) * 100).toFixed(1) : "0";
                     const replyRateA = totalA > 0 ? ((replyA / totalA) * 100).toFixed(1) : "0";
                     const replyRateB = totalB > 0 ? ((replyB / totalB) * 100).toFixed(1) : "0";
+                    const varsUsed = detectUsedVariables((test.variantA_subject || '') + (test.variantA_body || '') + (test.variantB_subject || '') + (test.variantB_body || ''));
 
                     return (
                       <div key={test.id} className="p-4 rounded-lg border space-y-3">
@@ -256,7 +258,14 @@ export default function EmailAutomationPage() {
                               创建于 {new Date(test.createdAt).toLocaleDateString("zh-CN")}
                             </p>
                           </div>
-                          <Badge>进行中</Badge>
+                          <div className="flex items-center gap-1">
+                            {varsUsed.length > 0 && (
+                              <Badge variant="secondary" className="text-[10px] gap-0.5">
+                                <Braces className="h-2.5 w-2.5" />{varsUsed.length}变量
+                              </Badge>
+                            )}
+                            <Badge>进行中</Badge>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -333,6 +342,30 @@ export default function EmailAutomationPage() {
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 <Badge variant="outline" className="gap-1"><BarChart3 className="h-3 w-3" />对比分析效果</Badge>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* V2.7: 变量替换功能说明 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm flex items-center gap-1">
+                <Braces className="h-4 w-4 text-amber-500" />
+                模板变量替换
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <p>在 A/B 测试模板中使用双花括号变量，发送时自动替换为实际数据：</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-2 rounded bg-muted/50">
+                  <p className="text-xs font-medium mb-1">企业信息</p>
+                  <p className="text-xs">{"{{\u516c\u53f8\u540d}}"} {"{{\u56fd\u5bb6}}"} {"{{\u5927\u6d32}}"} {"{{\u6838\u5fc3\u89d2\u8272}}"} {"{{\u4e3b\u8425\u4ea7\u54c1}}"} {"{{\u7f51\u7ad9}}"}</p>
+                </div>
+                <div className="p-2 rounded bg-muted/50">
+                  <p className="text-xs font-medium mb-1">联系人信息</p>
+                  <p className="text-xs">{"{{\u8054\u7cfb\u4eba}}"} {"{{\u804c\u4f4d}}"} {"{{\u90ae\u7bb1}}"} {"{{\u7535\u8bdd}}"} {"{{LinkedIn}}"}</p>
+                </div>
+              </div>
+              <p className="text-xs">示例：Dear {"{{\u8054\u7cfb\u4eba}}"}, We noticed {"{{\u516c\u53f8\u540d}}"} in {"{{\u56fd\u5bb6}}"} is a leading {"{{\u6838\u5fc3\u89d2\u8272}}"}...</p>
             </CardContent>
           </Card>
         </TabsContent>

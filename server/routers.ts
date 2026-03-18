@@ -9,6 +9,7 @@ import * as db from "./db";
 import { notifyFavoriteChange, notifyStatusUpdate, notifyContactImport, setFeishuWebhookUrl, getFeishuWebhookUrl, sendFeishuNotification } from "./feishuWebhook";
 import { invokeLLM } from "./_core/llm";
 import { industryConfig } from "@shared/industry-config";
+import { replaceTemplateVariables, type TemplateContext } from "@shared/emailTemplateVars";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== 'admin' && ctx.user.role !== 'editor') {
@@ -145,7 +146,7 @@ export const appRouter = router({
       notifyContactImport({ userName: ctx.user.name || '未知用户', companyName: company?.companyName || `ID:${input.companyId}`, count: input.contacts.length }).catch(() => {});
       return { imported: results.length };
     }),
-    // V2.1: 批量发送邮件给企业联系人
+    // V2.1: 批量发送邮件给企业联系人（V2.7: 支持变量替换）
     bulkEmail: protectedProcedure.input(z.object({
       companyId: z.number(),
       contactIds: z.array(z.number()),
@@ -155,12 +156,25 @@ export const appRouter = router({
       const contacts = await db.getCompanyContacts(input.companyId);
       const selected = contacts.filter((c: any) => input.contactIds.includes(c.id) && c.email);
       if (selected.length === 0) throw new TRPCError({ code: 'BAD_REQUEST', message: '所选联系人中没有有效邮箱' });
-      const recipients = selected.map((c: any) => c.email).join(',');
-      await db.addEmailHistory({
-        userId: ctx.user.id, companyId: input.companyId, recipients,
-        subject: input.subject, body: input.body, sendType: 'bcc', status: 'sent',
-        internalNote: `批量发送给 ${selected.length} 个联系人`,
-      });
+      
+      // V2.7: 获取企业数据用于变量替换
+      const company = await db.getCompanyById(input.companyId);
+      
+      // 为每个联系人单独替换变量并发送
+      for (const contact of selected) {
+        const templateCtx: TemplateContext = {
+          company: company || { companyName: '' },
+          contact: contact,
+        };
+        const finalSubject = replaceTemplateVariables(input.subject, templateCtx);
+        const finalBody = replaceTemplateVariables(input.body, templateCtx);
+        
+        await db.addEmailHistory({
+          userId: ctx.user.id, companyId: input.companyId, recipients: contact.email || '',
+          subject: finalSubject, body: finalBody, sendType: 'single', status: 'sent',
+          internalNote: `批量发送给 ${selected.length} 个联系人 - ${contact.name}`,
+        });
+      }
       return { sent: selected.length, recipients: selected.map((c: any) => ({ name: c.name, email: c.email })) };
     }),
   }),
@@ -386,6 +400,7 @@ export const appRouter = router({
         email: z.string(),
         companyName: z.string().optional(),
         companyId: z.number().optional(),
+        contactId: z.number().optional(),
       })),
     })).mutation(async ({ ctx, input }) => {
       const tests = await db.getUserAbTests(ctx.user.id);
@@ -399,9 +414,20 @@ export const appRouter = router({
         const subject = variant === 'A' ? test.variantA_subject : test.variantB_subject;
         const body = variant === 'A' ? test.variantA_body : test.variantB_body;
         
-        // 替换占位符
-        const finalBody = (body || '').replace(/\{\{company_name\}\}/g, r.companyName || '');
-        const finalSubject = (subject || '').replace(/\{\{company_name\}\}/g, r.companyName || '');
+        // V2.7: 构建变量替换上下文
+        const templateCtx: TemplateContext = { company: { companyName: r.companyName || '' } };
+        if (r.companyId) {
+          const company = await db.getCompanyById(r.companyId);
+          if (company) templateCtx.company = company;
+        }
+        if (r.contactId) {
+          const contacts = r.companyId ? await db.getCompanyContacts(r.companyId) : [];
+          const contact = contacts.find((c: any) => c.id === r.contactId);
+          if (contact) templateCtx.contact = contact;
+        }
+        
+        const finalSubject = replaceTemplateVariables(subject || '', templateCtx);
+        const finalBody = replaceTemplateVariables(body || '', templateCtx);
         
         await db.addEmailHistory({
           userId: ctx.user.id,
@@ -470,6 +496,26 @@ export const appRouter = router({
       });
       
       return { success: true, scheduledAt: scheduledTime.toISOString() };
+    }),
+    
+    // V2.7: 预览变量替换效果
+    previewTemplate: protectedProcedure.input(z.object({
+      template: z.string(),
+      companyId: z.number().optional(),
+      contactId: z.number().optional(),
+    })).mutation(async ({ input }) => {
+      const templateCtx: TemplateContext = {};
+      if (input.companyId) {
+        const company = await db.getCompanyById(input.companyId);
+        if (company) templateCtx.company = company;
+      }
+      if (input.contactId && input.companyId) {
+        const contacts = await db.getCompanyContacts(input.companyId);
+        const contact = contacts.find((c: any) => c.id === input.contactId);
+        if (contact) templateCtx.contact = contact;
+      }
+      const result = replaceTemplateVariables(input.template, templateCtx);
+      return { preview: result, context: templateCtx };
     }),
   }),
 
@@ -554,12 +600,26 @@ export const appRouter = router({
           await db.updateEmailBatchJob(input.id, { status: 'completed' });
           return { success: true, completed: true };
         }
+        // V2.7: 构建变量替换上下文
+        const batchTemplateCtx: TemplateContext = { company: { companyName: nextUnsent.companyName || '' } };
+        if (nextUnsent.companyId) {
+          const batchCompany = await db.getCompanyById(nextUnsent.companyId);
+          if (batchCompany) batchTemplateCtx.company = batchCompany;
+        }
+        if (nextUnsent.contactId) {
+          const batchContacts = nextUnsent.companyId ? await db.getCompanyContacts(nextUnsent.companyId) : [];
+          const batchContact = batchContacts.find((c: any) => c.id === nextUnsent.contactId);
+          if (batchContact) batchTemplateCtx.contact = batchContact;
+        }
+        const batchFinalSubject = replaceTemplateVariables(nextUnsent.subject || '', batchTemplateCtx);
+        const batchFinalBody = replaceTemplateVariables(nextUnsent.body || '', batchTemplateCtx);
+        
         await db.addEmailHistory({
           userId: ctx.user.id,
           companyId: nextUnsent.companyId,
           recipients: nextUnsent.email,
-          subject: nextUnsent.subject,
-          body: nextUnsent.body,
+          subject: batchFinalSubject,
+          body: batchFinalBody,
           sendType: 'single',
           status: 'sent',
           internalNote: `批量任务 #${input.id}`,

@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { useState } from "react";
 import { getLoginUrl } from "@/const";
-import { FlaskConical, Plus, Trash2, BarChart3, Mail, Eye, MessageSquare } from "lucide-react";
+import { FlaskConical, Plus, Trash2, BarChart3, Mail, Eye, MessageSquare, Braces } from "lucide-react";
+import TemplateVariableInsert from "@/components/TemplateVariableInsert";
+import { detectUsedVariables } from "@shared/emailTemplateVars";
 
 export default function AbTestPage() {
   const { isAuthenticated } = useAuth();
@@ -60,14 +62,45 @@ export default function AbTestPage() {
                 <Label>测试名称</Label>
                 <Input value={name} onChange={e => setName(e.target.value)} placeholder="例如：沙特市场询盘话术对比" />
               </div>
+
+              {/* V2.7: 变量使用提示 */}
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200 flex items-center gap-1">
+                  <Braces className="h-3 w-3" />
+                  支持模板变量
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                  在主题和正文中使用 {"{{公司名}}"} {"{{联系人}}"} {"{{国家}}"} 等变量，发送时自动替换为实际数据
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <Card className="border-blue-200">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm text-blue-600">变体A</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Input placeholder="邮件主题A" value={varA_subject} onChange={e => setVarA_subject(e.target.value)} />
-                    <Textarea placeholder="邮件正文A" rows={5} value={varA_body} onChange={e => setVarA_body(e.target.value)} />
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">邮件主题</Label>
+                        <TemplateVariableInsert
+                          value={varA_subject}
+                          onInsert={setVarA_subject}
+                          showPreview={false}
+                        />
+                      </div>
+                      <Input placeholder="邮件主题A" value={varA_subject} onChange={e => setVarA_subject(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">邮件正文</Label>
+                        <TemplateVariableInsert
+                          value={varA_body}
+                          onInsert={setVarA_body}
+                        />
+                      </div>
+                      <Textarea placeholder="邮件正文A&#10;&#10;示例：Dear {{联系人}},&#10;We are a leading supplier...&#10;We noticed {{公司名}} in {{国家}}..." rows={6} value={varA_body} onChange={e => setVarA_body(e.target.value)} />
+                    </div>
                   </CardContent>
                 </Card>
                 <Card className="border-orange-200">
@@ -75,8 +108,27 @@ export default function AbTestPage() {
                     <CardTitle className="text-sm text-orange-600">变体B</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Input placeholder="邮件主题B" value={varB_subject} onChange={e => setVarB_subject(e.target.value)} />
-                    <Textarea placeholder="邮件正文B" rows={5} value={varB_body} onChange={e => setVarB_body(e.target.value)} />
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">邮件主题</Label>
+                        <TemplateVariableInsert
+                          value={varB_subject}
+                          onInsert={setVarB_subject}
+                          showPreview={false}
+                        />
+                      </div>
+                      <Input placeholder="邮件主题B" value={varB_subject} onChange={e => setVarB_subject(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">邮件正文</Label>
+                        <TemplateVariableInsert
+                          value={varB_body}
+                          onInsert={setVarB_body}
+                        />
+                      </div>
+                      <Textarea placeholder="邮件正文B&#10;&#10;示例：Hi {{联系人}},&#10;I'm reaching out to {{公司名}}..." rows={6} value={varB_body} onChange={e => setVarB_body(e.target.value)} />
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -106,6 +158,8 @@ export default function AbTestPage() {
             const aRate = test.variantA_sent > 0 ? ((test.variantA_replied / test.variantA_sent) * 100).toFixed(1) : "0";
             const bRate = test.variantB_sent > 0 ? ((test.variantB_replied / test.variantB_sent) * 100).toFixed(1) : "0";
             const winner = Number(aRate) > Number(bRate) ? "A" : Number(bRate) > Number(aRate) ? "B" : null;
+            const varsA = detectUsedVariables((test.variantA_subject || '') + (test.variantA_body || ''));
+            const varsB = detectUsedVariables((test.variantB_subject || '') + (test.variantB_body || ''));
             return (
               <Card key={test.id}>
                 <CardHeader>
@@ -125,7 +179,14 @@ export default function AbTestPage() {
                     <div className={`p-4 rounded-lg border ${winner === "A" ? "border-green-500 bg-green-50" : "border-blue-200 bg-blue-50/50"}`}>
                       <div className="flex items-center justify-between mb-3">
                         <Badge variant="outline" className="text-blue-600">变体A</Badge>
-                        {winner === "A" && <Badge className="bg-green-500">胜出</Badge>}
+                        <div className="flex items-center gap-1">
+                          {varsA.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px] gap-0.5">
+                              <Braces className="h-2.5 w-2.5" />{varsA.length}变量
+                            </Badge>
+                          )}
+                          {winner === "A" && <Badge className="bg-green-500">胜出</Badge>}
+                        </div>
                       </div>
                       <p className="text-sm font-medium mb-1 truncate">{test.variantA_subject || "未设置主题"}</p>
                       <div className="grid grid-cols-3 gap-2 mt-3">
@@ -147,7 +208,14 @@ export default function AbTestPage() {
                     <div className={`p-4 rounded-lg border ${winner === "B" ? "border-green-500 bg-green-50" : "border-orange-200 bg-orange-50/50"}`}>
                       <div className="flex items-center justify-between mb-3">
                         <Badge variant="outline" className="text-orange-600">变体B</Badge>
-                        {winner === "B" && <Badge className="bg-green-500">胜出</Badge>}
+                        <div className="flex items-center gap-1">
+                          {varsB.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px] gap-0.5">
+                              <Braces className="h-2.5 w-2.5" />{varsB.length}变量
+                            </Badge>
+                          )}
+                          {winner === "B" && <Badge className="bg-green-500">胜出</Badge>}
+                        </div>
                       </div>
                       <p className="text-sm font-medium mb-1 truncate">{test.variantB_subject || "未设置主题"}</p>
                       <div className="grid grid-cols-3 gap-2 mt-3">

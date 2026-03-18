@@ -16,6 +16,8 @@ import {
   Building2, Calendar, TrendingUp, Shield, Upload, Send, FileSpreadsheet,
   Users, History
 } from "lucide-react";
+import TemplateVariableInsert from "@/components/TemplateVariableInsert";
+import type { TemplateContext } from "@shared/emailTemplateVars";
 
 interface CompanyDetailDialogProps {
   company: any;
@@ -300,13 +302,28 @@ export default function CompanyDetailDialog({ company, open, onClose }: CompanyD
 
                   <div className="space-y-2">
                     <div className="space-y-1">
-                      <Label className="text-xs">邮件主题 *</Label>
-                      <Input placeholder="输入邮件主题" value={emailSubject}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">邮件主题 *</Label>
+                        <TemplateVariableInsert
+                          value={emailSubject}
+                          onInsert={setEmailSubject}
+                          showPreview={false}
+                          previewContext={{ company: company, contact: contacts?.find((c: any) => selectedContactIds.includes(c.id)) } as TemplateContext}
+                        />
+                      </div>
+                      <Input placeholder="输入邮件主题，可使用 {{公司名}} {{联系人}} 等变量" value={emailSubject}
                         onChange={e => setEmailSubject(e.target.value)} className="h-8 text-sm" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">邮件正文 *</Label>
-                      <Textarea placeholder="输入邮件正文内容..." value={emailBody}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">邮件正文 *</Label>
+                        <TemplateVariableInsert
+                          value={emailBody}
+                          onInsert={setEmailBody}
+                          previewContext={{ company: company, contact: contacts?.find((c: any) => selectedContactIds.includes(c.id)) } as TemplateContext}
+                        />
+                      </div>
+                      <Textarea placeholder="输入邮件正文内容...可使用 {{公司名}} {{联系人}} {{国家}} 等变量" value={emailBody}
                         onChange={e => setEmailBody(e.target.value)} className="text-sm min-h-[80px]" />
                     </div>
                   </div>
