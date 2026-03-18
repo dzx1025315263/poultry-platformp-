@@ -9,4 +9,5 @@ export const ENV = {
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
   feishuAppId: process.env.FEISHU_APP_ID ?? "",
   feishuAppSecret: process.env.FEISHU_APP_SECRET ?? "",
+  feishuWebhookUrl: process.env.FEISHU_WEBHOOK_URL ?? "",
 };

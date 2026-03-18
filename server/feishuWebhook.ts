@@ -3,7 +3,18 @@
  * 当收藏夹变更、跟进状态更新时自动推送飞书消息通知
  */
 
-const FEISHU_WEBHOOK_URL = process.env.FEISHU_WEBHOOK_URL || "";
+import { ENV } from "./_core/env";
+
+let FEISHU_WEBHOOK_URL = process.env.FEISHU_WEBHOOK_URL || ENV.feishuWebhookUrl || "";
+
+// 允许运行时动态更新 Webhook URL
+export function setFeishuWebhookUrl(url: string) {
+  FEISHU_WEBHOOK_URL = url;
+}
+
+export function getFeishuWebhookUrl() {
+  return FEISHU_WEBHOOK_URL;
+}
 
 export interface FeishuMessage {
   title: string;

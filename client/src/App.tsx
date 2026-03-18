@@ -23,6 +23,9 @@ const ExportPage = lazy(() => import("./pages/ExportPage"));
 const AbTestPage = lazy(() => import("./pages/AbTestPage"));
 const BackupPage = lazy(() => import("./pages/BackupPage"));
 const TradePage = lazy(() => import("./pages/TradePage"));
+const FeishuSettingsPage = lazy(() => import("./pages/FeishuSettingsPage"));
+const AiRecommendPage = lazy(() => import("./pages/AiRecommendPage"));
+const EmailAutomationPage = lazy(() => import("./pages/EmailAutomationPage"));
 
 function PageLoader() {
   return (
@@ -53,6 +56,9 @@ function Router() {
           <Route path="/abtest" component={AbTestPage} />
           <Route path="/backup" component={BackupPage} />
           <Route path="/trade" component={TradePage} />
+          <Route path="/feishu-settings" component={FeishuSettingsPage} />
+          <Route path="/ai-recommend" component={AiRecommendPage} />
+          <Route path="/email-automation" component={EmailAutomationPage} />
           <Route path="/404" component={NotFound} />
           <Route component={NotFound} />
         </Switch>

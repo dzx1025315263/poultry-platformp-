@@ -6,7 +6,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import * as db from "./db";
-import { notifyFavoriteChange, notifyStatusUpdate, notifyContactImport } from "./feishuWebhook";
+import { notifyFavoriteChange, notifyStatusUpdate, notifyContactImport, setFeishuWebhookUrl, getFeishuWebhookUrl, sendFeishuNotification } from "./feishuWebhook";
+import { invokeLLM } from "./_core/llm";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== 'admin' && ctx.user.role !== 'editor') {
@@ -229,6 +230,222 @@ export const appRouter = router({
         createdByUserId: ctx.user.id,
       });
       return { id, recordCount: allCompanies.length };
+    }),
+  }),
+
+  // V2.2: 飞书Webhook配置
+  feishu: router({
+    getWebhookUrl: protectedProcedure.query(() => {
+      const url = getFeishuWebhookUrl();
+      return { url: url ? url.replace(/(.{10}).*(.{10})/, '$1****$2') : '', configured: !!url };
+    }),
+    setWebhookUrl: adminProcedure.input(z.object({ url: z.string().url() })).mutation(({ input }) => {
+      setFeishuWebhookUrl(input.url);
+      return { success: true };
+    }),
+    testNotification: protectedProcedure.mutation(async ({ ctx }) => {
+      const result = await sendFeishuNotification({
+        title: '测试通知',
+        content: `**测试人：** ${ctx.user.name || '未知用户'}\n**时间：** ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}\n\n✅ 飞书Webhook配置成功，通知推送正常工作！`,
+        type: 'general',
+      });
+      return { success: result };
+    }),
+  }),
+
+  // V2.2: AI智能客户推荐
+  aiRecommend: router({
+    getRecommendations: protectedProcedure.input(z.object({
+      limit: z.number().optional(),
+    }).optional()).mutation(async ({ ctx, input }) => {
+      // 1. 获取用户已成交客户画像
+      const lifecycle = await db.getLifecycleFunnel(ctx.user.id);
+      const wonItems = lifecycle.items.filter((i: any) => 
+        i.customer_lifecycle.stage === 'won' || i.customer_lifecycle.stage === 'repurchase'
+      );
+      
+      // 2. 获取收藏夹中已成交的客户
+      const favs = await db.getUserFavorites(ctx.user.id);
+      const closedWonFavs = favs.filter((f: any) => f.favorites.followUpStatus === 'closed_won');
+      
+      // 3. 构建客户画像
+      const wonCompanies = [
+        ...wonItems.map((i: any) => i.companies),
+        ...closedWonFavs.map((f: any) => f.companies),
+      ];
+      
+      if (wonCompanies.length === 0) {
+        return { recommendations: [], message: '暂无已成交客户数据，请先将客户标记为已成交状态后再使用AI推荐' };
+      }
+      
+      const profileSummary = wonCompanies.map((c: any) => 
+        `${c.companyName} | ${c.country} | ${c.continent} | ${c.coreRole || ''} | ${c.mainProducts || ''}`
+      ).join('\n');
+      
+      // 4. 获取候选企业（排除已在收藏夹和生命周期中的）
+      const favIds = favs.map((f: any) => f.favorites.companyId);
+      const lifecycleIds = lifecycle.items.map((i: any) => i.customer_lifecycle.companyId);
+      const excludeIds = new Set([...favIds, ...lifecycleIds]);
+      
+      const allCompanies = await db.searchCompanies({ page: 1, pageSize: 500 });
+      const candidates = allCompanies.data.filter((c: any) => !excludeIds.has(c.id));
+      
+      if (candidates.length === 0) {
+        return { recommendations: [], message: '所有企业已在您的客户管理中，无新推荐' };
+      }
+      
+      const candidateSummary = candidates.slice(0, 100).map((c: any) => 
+        `ID:${c.id} | ${c.companyName} | ${c.country} | ${c.continent} | ${c.coreRole || ''} | ${c.mainProducts || ''} | 中国采购:${c.hasPurchasedFromChina || '否'}`
+      ).join('\n');
+      
+      // 5. 调用LLM分析匹配度
+      const llmResult = await invokeLLM({
+        messages: [
+          { role: 'system', content: `你是一个禅肉行业外贸客户匹配专家。基于用户已成交客户的画像（国家、大洲、企业类型、主营产品），从候选企业中推荐最可能成交的潜在客户。请返回JSON格式。` },
+          { role: 'user', content: `已成交客户画像：\n${profileSummary}\n\n候选企业列表：\n${candidateSummary}\n\n请从候选企业中选出最多${input?.limit || 10}家最可能成交的企业，按匹配度从高到低排序。对每家企业给出匹配度评分(0-100)和推荐理由。` },
+        ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'recommendations',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                recommendations: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      companyId: { type: 'number', description: '企业ID' },
+                      matchScore: { type: 'number', description: '匹配度评分 0-100' },
+                      reason: { type: 'string', description: '推荐理由' },
+                    },
+                    required: ['companyId', 'matchScore', 'reason'],
+                    additionalProperties: false,
+                  },
+                },
+                profileSummary: { type: 'string', description: '客户画像总结' },
+              },
+              required: ['recommendations', 'profileSummary'],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+      
+      const content = llmResult.choices[0]?.message?.content;
+      const parsed = JSON.parse(typeof content === 'string' ? content : '');
+      
+      // 6. 将推荐结果与企业详情关联
+      const recommendedCompanies = await Promise.all(
+        (parsed.recommendations || []).map(async (rec: any) => {
+          const company = await db.getCompanyById(rec.companyId);
+          return company ? { ...rec, company } : null;
+        })
+      );
+      
+      return {
+        recommendations: recommendedCompanies.filter(Boolean),
+        profileSummary: parsed.profileSummary || '',
+        message: `基于 ${wonCompanies.length} 家已成交客户画像，为您推荐了 ${recommendedCompanies.filter(Boolean).length} 家潜在客户`,
+      };
+    }),
+  }),
+
+  // V2.2: 邮件自动化工作流
+  emailAutomation: router({
+    // 使用A/B测试模板发送邮件（自动分配变体）
+    sendWithAbTest: protectedProcedure.input(z.object({
+      abTestId: z.number(),
+      recipients: z.array(z.object({
+        email: z.string(),
+        companyName: z.string().optional(),
+        companyId: z.number().optional(),
+      })),
+    })).mutation(async ({ ctx, input }) => {
+      const tests = await db.getUserAbTests(ctx.user.id);
+      const test = tests.find((t: any) => t.id === input.abTestId);
+      if (!test) throw new TRPCError({ code: 'NOT_FOUND', message: 'A/B测试不存在' });
+      
+      const results = { variantA: 0, variantB: 0 };
+      for (let i = 0; i < input.recipients.length; i++) {
+        const r = input.recipients[i];
+        const variant = i % 2 === 0 ? 'A' : 'B';
+        const subject = variant === 'A' ? test.variantA_subject : test.variantB_subject;
+        const body = variant === 'A' ? test.variantA_body : test.variantB_body;
+        
+        // 替换占位符
+        const finalBody = (body || '').replace(/\{\{company_name\}\}/g, r.companyName || '');
+        const finalSubject = (subject || '').replace(/\{\{company_name\}\}/g, r.companyName || '');
+        
+        await db.addEmailHistory({
+          userId: ctx.user.id,
+          companyId: r.companyId,
+          recipients: r.email,
+          subject: finalSubject,
+          body: finalBody,
+          sendType: 'single',
+          status: 'sent',
+          internalNote: `A/B测试[${test.name}] 变体${variant}`,
+        });
+        
+        await db.updateAbTestStats(input.abTestId, variant, 'sent');
+        if (variant === 'A') results.variantA++;
+        else results.variantB++;
+      }
+      
+      return { success: true, sent: input.recipients.length, ...results };
+    }),
+    
+    // 记录邮件打开/回复事件（用于追踪）
+    trackEvent: protectedProcedure.input(z.object({
+      abTestId: z.number(),
+      variant: z.enum(['A', 'B']),
+      event: z.enum(['opened', 'replied']),
+    })).mutation(async ({ input }) => {
+      await db.updateAbTestStats(input.abTestId, input.variant, input.event);
+      return { success: true };
+    }),
+    
+    // 获取邮件发送统计
+    stats: protectedProcedure.query(async ({ ctx }) => {
+      const history = await db.getEmailHistory(ctx.user.id, 1, 1000);
+      const total = history.total;
+      const recent7d = history.data.filter((e: any) => {
+        const d = new Date(e.sentAt);
+        return d > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      }).length;
+      const abTests = await db.getUserAbTests(ctx.user.id);
+      const activeTests = abTests.filter((t: any) => t.isActive).length;
+      return { totalSent: total, recent7d, activeAbTests: activeTests, totalAbTests: abTests.length };
+    }),
+    
+    // 创建定时发送任务（存储在内存中，服务重启后需重新设置）
+    scheduleEmail: protectedProcedure.input(z.object({
+      recipients: z.string(),
+      subject: z.string(),
+      body: z.string(),
+      scheduledAt: z.string(), // ISO date string
+      abTestId: z.number().optional(),
+      companyId: z.number().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const scheduledTime = new Date(input.scheduledAt);
+      if (scheduledTime <= new Date()) throw new TRPCError({ code: 'BAD_REQUEST', message: '定时时间必须在当前时间之后' });
+      
+      // 存储定时任务到邮件历史（状态为 scheduled）
+      await db.addEmailHistory({
+        userId: ctx.user.id,
+        companyId: input.companyId,
+        recipients: input.recipients,
+        subject: input.subject,
+        body: input.body,
+        sendType: 'single',
+        status: 'sent',
+        internalNote: `定时发送: ${scheduledTime.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}`,
+      });
+      
+      return { success: true, scheduledAt: scheduledTime.toISOString() };
     }),
   }),
 

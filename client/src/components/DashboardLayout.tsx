@@ -23,7 +23,7 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, LogOut, PanelLeft, Globe, Map, Heart, Users, Mail, Shield, Search, FileText, TrendingUp,
-  GitBranch, Download, FlaskConical, Database, BarChart3
+  GitBranch, Download, FlaskConical, Database, BarChart3, Bell, Sparkles, Zap
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -53,6 +53,8 @@ const menuGroups: MenuGroup[] = [
       { icon: GitBranch, label: "生命周期", path: "/lifecycle" },
       { icon: Mail, label: "询盘邮件", path: "/inquiry" },
       { icon: FlaskConical, label: "A/B 测试", path: "/abtest" },
+      { icon: Zap, label: "邮件自动化", path: "/email-automation" },
+      { icon: Sparkles, label: "AI 推荐", path: "/ai-recommend" },
     ],
   },
   {
@@ -67,6 +69,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Shield, label: "管理后台", path: "/admin", adminOnly: true },
       { icon: Database, label: "数据备份", path: "/backup", adminOnly: true },
+      { icon: Bell, label: "飞书通知", path: "/feishu-settings" },
     ],
   },
 ];
