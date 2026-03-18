@@ -263,45 +263,35 @@ export const appRouter = router({
       const wonItems = lifecycle.items.filter((i: any) => 
         i.customer_lifecycle.stage === 'won' || i.customer_lifecycle.stage === 'repurchase'
       );
-      
-      // 2. 获取收藏夹中已成交的客户
       const favs = await db.getUserFavorites(ctx.user.id);
       const closedWonFavs = favs.filter((f: any) => f.favorites.followUpStatus === 'closed_won');
-      
-      // 3. 构建客户画像
       const wonCompanies = [
         ...wonItems.map((i: any) => i.companies),
         ...closedWonFavs.map((f: any) => f.companies),
       ];
-      
       if (wonCompanies.length === 0) {
         return { recommendations: [], message: '暂无已成交客户数据，请先将客户标记为已成交状态后再使用AI推荐' };
       }
-      
       const profileSummary = wonCompanies.map((c: any) => 
         `${c.companyName} | ${c.country} | ${c.continent} | ${c.coreRole || ''} | ${c.mainProducts || ''}`
       ).join('\n');
-      
-      // 4. 获取候选企业（排除已在收藏夹和生命周期中的）
+      // 获取候选企业（排除已在收藏夹、生命周期、以及不感兴趣列表中的）
       const favIds = favs.map((f: any) => f.favorites.companyId);
       const lifecycleIds = lifecycle.items.map((i: any) => i.customer_lifecycle.companyId);
-      const excludeIds = new Set([...favIds, ...lifecycleIds]);
-      
+      const exclusions = await db.getAiExclusions(ctx.user.id);
+      const excludedIds = exclusions.map((e: any) => e.companyId);
+      const excludeIds = new Set([...favIds, ...lifecycleIds, ...excludedIds]);
       const allCompanies = await db.searchCompanies({ page: 1, pageSize: 500 });
       const candidates = allCompanies.data.filter((c: any) => !excludeIds.has(c.id));
-      
       if (candidates.length === 0) {
-        return { recommendations: [], message: '所有企业已在您的客户管理中，无新推荐' };
+        return { recommendations: [], message: '所有企业已在您的客户管理中或已标记为不感兴趣，无新推荐' };
       }
-      
       const candidateSummary = candidates.slice(0, 100).map((c: any) => 
         `ID:${c.id} | ${c.companyName} | ${c.country} | ${c.continent} | ${c.coreRole || ''} | ${c.mainProducts || ''} | 中国采购:${c.hasPurchasedFromChina || '否'}`
       ).join('\n');
-      
-      // 5. 调用LLM分析匹配度
       const llmResult = await invokeLLM({
         messages: [
-          { role: 'system', content: `你是一个禅肉行业外贸客户匹配专家。基于用户已成交客户的画像（国家、大洲、企业类型、主营产品），从候选企业中推荐最可能成交的潜在客户。请返回JSON格式。` },
+          { role: 'system', content: `你是一个禽肉行业外贸客户匹配专家。基于用户已成交客户的画像（国家、大洲、企业类型、主营产品），从候选企业中推荐最可能成交的潜在客户。请返回JSON格式。` },
           { role: 'user', content: `已成交客户画像：\n${profileSummary}\n\n候选企业列表：\n${candidateSummary}\n\n请从候选企业中选出最多${input?.limit || 10}家最可能成交的企业，按匹配度从高到低排序。对每家企业给出匹配度评分(0-100)和推荐理由。` },
         ],
         response_format: {
@@ -333,23 +323,45 @@ export const appRouter = router({
           },
         },
       });
-      
       const content = llmResult.choices[0]?.message?.content;
       const parsed = JSON.parse(typeof content === 'string' ? content : '');
-      
-      // 6. 将推荐结果与企业详情关联
       const recommendedCompanies = await Promise.all(
         (parsed.recommendations || []).map(async (rec: any) => {
           const company = await db.getCompanyById(rec.companyId);
           return company ? { ...rec, company } : null;
         })
       );
-      
       return {
         recommendations: recommendedCompanies.filter(Boolean),
         profileSummary: parsed.profileSummary || '',
         message: `基于 ${wonCompanies.length} 家已成交客户画像，为您推荐了 ${recommendedCompanies.filter(Boolean).length} 家潜在客户`,
       };
+    }),
+    // V2.3: 标记不感兴趣
+    exclude: protectedProcedure.input(z.object({
+      companyId: z.number(),
+      reason: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.addAiExclusion(ctx.user.id, input.companyId, input.reason);
+      return { success: true };
+    }),
+    // V2.3: 取消不感兴趣标记
+    removeExclusion: protectedProcedure.input(z.object({
+      companyId: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.removeAiExclusion(ctx.user.id, input.companyId);
+      return { success: true };
+    }),
+    // V2.3: 获取不感兴趣列表
+    getExclusions: protectedProcedure.query(async ({ ctx }) => {
+      const exclusions = await db.getAiExclusions(ctx.user.id);
+      const companiesData = await Promise.all(
+        exclusions.map(async (e: any) => {
+          const company = await db.getCompanyById(e.companyId);
+          return { ...e, company };
+        })
+      );
+      return companiesData.filter((e: any) => e.company);
     }),
   }),
 
@@ -447,6 +459,116 @@ export const appRouter = router({
       
       return { success: true, scheduledAt: scheduledTime.toISOString() };
     }),
+  }),
+
+  // V2.3: 待办事项
+  todo: router({
+    list: protectedProcedure.input(z.object({ status: z.string().optional() }).optional())
+      .query(({ ctx, input }) => db.getUserTodoItems(ctx.user.id, input?.status)),
+    add: protectedProcedure.input(z.object({
+      title: z.string().min(1),
+      description: z.string().optional(),
+      source: z.string().optional(),
+      sourceId: z.string().optional(),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+      dueDate: z.date().optional(),
+    })).mutation(({ ctx, input }) => db.addTodoItem({ userId: ctx.user.id, ...input })),
+    update: protectedProcedure.input(z.object({
+      id: z.number(),
+      title: z.string().optional(),
+      description: z.string().optional(),
+      priority: z.string().optional(),
+      status: z.string().optional(),
+      dueDate: z.date().nullable().optional(),
+      completedAt: z.date().nullable().optional(),
+    })).mutation(({ ctx, input }) => {
+      const { id, ...data } = input;
+      return db.updateTodoItem(id, ctx.user.id, data);
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ ctx, input }) => db.deleteTodoItem(input.id, ctx.user.id)),
+    complete: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(({ ctx, input }) => db.updateTodoItem(input.id, ctx.user.id, { status: 'done', completedAt: new Date() })),
+  }),
+
+  // V2.3: 邮件批量任务（暂停/恢复）
+  emailBatch: router({
+    list: protectedProcedure.query(({ ctx }) => db.getEmailBatchJobs(ctx.user.id)),
+    create: protectedProcedure.input(z.object({
+      abTestId: z.number().optional(),
+      recipients: z.array(z.object({
+        email: z.string(),
+        companyName: z.string().optional(),
+        companyId: z.number().optional(),
+      })),
+      subject: z.string(),
+      body: z.string(),
+    })).mutation(async ({ ctx, input }) => {
+      const jobId = await db.createEmailBatchJob({
+        userId: ctx.user.id,
+        abTestId: input.abTestId,
+        totalRecipients: input.recipients.length,
+        recipientsJson: JSON.stringify(input.recipients.map((r, i) => ({
+          ...r, subject: input.subject, body: input.body, sent: false, index: i,
+        }))),
+      });
+      return { jobId, totalRecipients: input.recipients.length };
+    }),
+    get: protectedProcedure.input(z.object({ id: z.number() }))
+      .query(({ input }) => db.getEmailBatchJob(input.id)),
+    pause: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.updateEmailBatchJob(input.id, { status: 'paused' });
+        return { success: true };
+      }),
+    resume: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.updateEmailBatchJob(input.id, { status: 'running' });
+        return { success: true };
+      }),
+    cancel: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.updateEmailBatchJob(input.id, { status: 'cancelled' });
+        return { success: true };
+      }),
+    sendNext: protectedProcedure.input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const job = await db.getEmailBatchJob(input.id);
+        if (!job) throw new TRPCError({ code: 'NOT_FOUND', message: '任务不存在' });
+        if (job.status !== 'running') return { success: false, message: '任务已暂停或完成' };
+        const recipients = JSON.parse(job.recipientsJson || '[]');
+        const nextUnsent = recipients.find((r: any) => !r.sent);
+        if (!nextUnsent) {
+          await db.updateEmailBatchJob(input.id, { status: 'completed' });
+          return { success: true, completed: true };
+        }
+        await db.addEmailHistory({
+          userId: ctx.user.id,
+          companyId: nextUnsent.companyId,
+          recipients: nextUnsent.email,
+          subject: nextUnsent.subject,
+          body: nextUnsent.body,
+          sendType: 'single',
+          status: 'sent',
+          internalNote: `批量任务 #${input.id}`,
+        });
+        nextUnsent.sent = true;
+        const newSentCount = (job.sentCount || 0) + 1;
+        const allSent = recipients.every((r: any) => r.sent);
+        await db.updateEmailBatchJob(input.id, {
+          sentCount: newSentCount,
+          status: allSent ? 'completed' : 'running',
+          ...(allSent ? {} : {}),
+        });
+        // Update recipientsJson with sent status
+        const dbInst = await db.getDb();
+        if (dbInst) {
+          const { emailBatchJobs } = await import('../drizzle/schema');
+          const { eq } = await import('drizzle-orm');
+          await dbInst.update(emailBatchJobs).set({ recipientsJson: JSON.stringify(recipients) } as any).where(eq(emailBatchJobs.id, input.id));
+        }
+        return { success: true, sent: nextUnsent, sentCount: newSentCount, total: job.totalRecipients, completed: allSent };
+      }),
   }),
 
   admin: router({

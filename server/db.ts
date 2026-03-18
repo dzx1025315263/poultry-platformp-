@@ -4,7 +4,8 @@ import {
   InsertUser, users, companies, favorites, teams, teamMembers,
   teamSharedCompanies, inquiryTemplates, smtpConfigs, emailHistory, auditLogs,
   companyContacts, companyCreditRatings, customerLifecycle, abTestTemplates,
-  teamRegionAccess, backupRecords, poultryTradeData
+  teamRegionAccess, backupRecords, poultryTradeData,
+  aiRecommendExclusions, todoItems, emailBatchJobs
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -527,4 +528,82 @@ export async function insertPoultryTradeData(data: {
   if (data.length > 0) {
     await db.insert(poultryTradeData).values(data as any);
   }
+}
+
+// ==================== AI RECOMMEND EXCLUSIONS (V2.3) ====================
+export async function getAiExclusions(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(aiRecommendExclusions).where(eq(aiRecommendExclusions.userId, userId));
+}
+
+export async function addAiExclusion(userId: number, companyId: number, reason?: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const ex = await db.select().from(aiRecommendExclusions)
+    .where(and(eq(aiRecommendExclusions.userId, userId), eq(aiRecommendExclusions.companyId, companyId))).limit(1);
+  if (ex.length) return ex[0].id;
+  const r = await db.insert(aiRecommendExclusions).values({ userId, companyId, reason } as any);
+  return Number(r[0].insertId);
+}
+
+export async function removeAiExclusion(userId: number, companyId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(aiRecommendExclusions).where(and(eq(aiRecommendExclusions.userId, userId), eq(aiRecommendExclusions.companyId, companyId)));
+}
+
+// ==================== TODO ITEMS (V2.3) ====================
+export async function getUserTodoItems(userId: number, status?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const conds = [eq(todoItems.userId, userId)];
+  if (status) conds.push(eq(todoItems.status, status as any));
+  return db.select().from(todoItems).where(and(...conds)).orderBy(desc(todoItems.createdAt));
+}
+
+export async function addTodoItem(data: { userId: number; title: string; description?: string; source?: string; sourceId?: string; priority?: string; dueDate?: Date }) {
+  const db = await getDb();
+  if (!db) return null;
+  const r = await db.insert(todoItems).values(data as any);
+  return Number(r[0].insertId);
+}
+
+export async function updateTodoItem(id: number, userId: number, data: { title?: string; description?: string; priority?: string; status?: string; dueDate?: Date | null; completedAt?: Date | null }) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(todoItems).set(data as any).where(and(eq(todoItems.id, id), eq(todoItems.userId, userId)));
+}
+
+export async function deleteTodoItem(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(todoItems).where(and(eq(todoItems.id, id), eq(todoItems.userId, userId)));
+}
+
+// ==================== EMAIL BATCH JOBS (V2.3) ====================
+export async function createEmailBatchJob(data: { userId: number; abTestId?: number; totalRecipients: number; recipientsJson: string }) {
+  const db = await getDb();
+  if (!db) return null;
+  const r = await db.insert(emailBatchJobs).values(data as any);
+  return Number(r[0].insertId);
+}
+
+export async function getEmailBatchJobs(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(emailBatchJobs).where(eq(emailBatchJobs.userId, userId)).orderBy(desc(emailBatchJobs.createdAt));
+}
+
+export async function getEmailBatchJob(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const r = await db.select().from(emailBatchJobs).where(eq(emailBatchJobs.id, id)).limit(1);
+  return r[0] || null;
+}
+
+export async function updateEmailBatchJob(id: number, data: { status?: string; sentCount?: number }) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(emailBatchJobs).set(data as any).where(eq(emailBatchJobs.id, id));
 }

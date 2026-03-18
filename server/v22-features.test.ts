@@ -74,6 +74,19 @@ vi.mock("./db", () => ({
     total: 2,
   }),
   getUserFavoriteIds: vi.fn().mockResolvedValue([1, 3]),
+  // V2.3 mocks needed for AI recommend
+  getAiExclusions: vi.fn().mockResolvedValue([]),
+  addAiExclusion: vi.fn().mockResolvedValue(undefined),
+  removeAiExclusion: vi.fn().mockResolvedValue(undefined),
+  getUserTodoItems: vi.fn().mockResolvedValue([]),
+  addTodoItem: vi.fn().mockResolvedValue({ id: 1 }),
+  updateTodoItem: vi.fn().mockResolvedValue(undefined),
+  deleteTodoItem: vi.fn().mockResolvedValue(undefined),
+  getEmailBatchJobs: vi.fn().mockResolvedValue([]),
+  createEmailBatchJob: vi.fn().mockResolvedValue(1),
+  getEmailBatchJob: vi.fn().mockResolvedValue(null),
+  updateEmailBatchJob: vi.fn().mockResolvedValue(undefined),
+  getDb: vi.fn().mockResolvedValue(null),
 }));
 
 const createCaller = (user?: any) => {

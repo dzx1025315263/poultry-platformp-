@@ -23,7 +23,7 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, LogOut, PanelLeft, Globe, Map, Heart, Users, Mail, Shield, Search, FileText, TrendingUp,
-  GitBranch, Download, FlaskConical, Database, BarChart3, Bell, Sparkles, Zap
+  GitBranch, Download, FlaskConical, Database, BarChart3, Bell, Sparkles, Zap, ListTodo
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -62,6 +62,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Users, label: "团队管理", path: "/teams" },
       { icon: Download, label: "数据导出", path: "/export" },
+      { icon: ListTodo, label: "待办事项", path: "/todo" },
     ],
   },
   {

@@ -212,6 +212,44 @@ export const backupRecords = mysqlTable("backup_records", {
   createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+// V2.3: AI推荐排除表（不感兴趣标记）
+export const aiRecommendExclusions = mysqlTable("ai_recommend_exclusions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  companyId: int("companyId").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V2.3: 待办事项表
+export const todoItems = mysqlTable("todo_items", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description"),
+  source: varchar("source", { length: 100 }),
+  sourceId: varchar("sourceId", { length: 200 }),
+  priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium"),
+  status: mysqlEnum("status", ["pending", "in_progress", "done"]).default("pending"),
+  dueDate: timestamp("dueDate"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// V2.3: 邮件批量发送任务表（支持暂停/恢复）
+export const emailBatchJobs = mysqlTable("email_batch_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  abTestId: int("abTestId"),
+  totalRecipients: int("totalRecipients").notNull(),
+  sentCount: int("sentCount").default(0),
+  status: mysqlEnum("status", ["running", "paused", "completed", "cancelled"]).default("running"),
+  recipientsJson: text("recipientsJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 // V2.1: 禽肉贸易数据表（UN Comtrade数据）
 export const poultryTradeData = mysqlTable("poultry_trade_data", {
   id: int("id").autoincrement().primaryKey(),
