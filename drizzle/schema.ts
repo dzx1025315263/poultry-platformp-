@@ -128,3 +128,87 @@ export const auditLogs = mysqlTable("audit_logs", {
   details: text("details"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+// V2.0: 企业联系人表
+export const companyContacts = mysqlTable("company_contacts", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  title: varchar("title", { length: 200 }),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 100 }),
+  linkedin: text("linkedin"),
+  isPrimary: boolean("isPrimary").default(false),
+  addedByUserId: int("addedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// V2.0: 企业信用评级表
+export const companyCreditRatings = mysqlTable("company_credit_ratings", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  registeredCapital: varchar("registeredCapital", { length: 200 }),
+  foundedYear: int("foundedYear"),
+  importFrequency: mysqlEnum("importFrequency", ["unknown", "rare", "occasional", "frequent", "very_frequent"]).default("unknown"),
+  cooperationHistory: mysqlEnum("cooperationHistory", ["none", "inquiry", "sample", "trial_order", "regular"]).default("none"),
+  creditScore: int("creditScore").default(0),
+  ratedByUserId: int("ratedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// V2.0: 客户生命周期阶段表（漏斗看板）
+export const customerLifecycle = mysqlTable("customer_lifecycle", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  companyId: int("companyId").notNull(),
+  stage: mysqlEnum("stage", ["prospect", "contacted", "quoted", "won", "repurchase"]).default("prospect").notNull(),
+  dealValue: text("dealValue"),
+  expectedCloseDate: timestamp("expectedCloseDate"),
+  notes: text("notes"),
+  movedAt: timestamp("movedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// V2.0: 询盘A/B测试模板表
+export const abTestTemplates = mysqlTable("ab_test_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 200 }).notNull(),
+  variantA_subject: varchar("variantA_subject", { length: 500 }),
+  variantA_body: text("variantA_body"),
+  variantB_subject: varchar("variantB_subject", { length: 500 }),
+  variantB_body: text("variantB_body"),
+  variantA_sent: int("variantA_sent").default(0),
+  variantA_opened: int("variantA_opened").default(0),
+  variantA_replied: int("variantA_replied").default(0),
+  variantB_sent: int("variantB_sent").default(0),
+  variantB_opened: int("variantB_opened").default(0),
+  variantB_replied: int("variantB_replied").default(0),
+  isActive: boolean("isActive").default(true),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// V2.0: 团队区域权限表
+export const teamRegionAccess = mysqlTable("team_region_access", {
+  id: int("id").autoincrement().primaryKey(),
+  teamId: int("teamId").notNull(),
+  continent: varchar("continent", { length: 100 }),
+  country: text("country"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V2.0: 数据备份记录表
+export const backupRecords = mysqlTable("backup_records", {
+  id: int("id").autoincrement().primaryKey(),
+  fileName: varchar("fileName", { length: 500 }).notNull(),
+  fileUrl: text("fileUrl"),
+  fileSize: int("fileSize"),
+  recordCount: int("recordCount"),
+  backupType: mysqlEnum("backupType", ["manual", "scheduled"]).default("manual"),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});

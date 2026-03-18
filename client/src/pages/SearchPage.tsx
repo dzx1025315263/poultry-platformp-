@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Globe, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo } from "react";
+import CompanyDetailDialog from "@/components/CompanyDetailDialog";
 
-const ROLE_TAGS = ["全产业链巨头", "进口商/贸易商", "加工商", "冷链物流", "养殖/饮料", "零售商/超市", "行业协会", "其他"];
+const ROLE_TAGS = ["全产业链巨头", "进口商/贸易商", "加工商", "冷链物流", "养殖/饲料", "零售商/超市", "行业协会", "其他"];
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
@@ -15,6 +16,8 @@ export default function SearchPage() {
   const [role, setRole] = useState("");
   const [chinaOnly, setChinaOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const [selectedCompany, setSelectedCompany] = useState<any>(null);
+
   const searchInput = useMemo(() => ({
     query: query || undefined, continent: continent || undefined,
     role: role || undefined, chinaOnly: chinaOnly || undefined, page, pageSize: 30,
@@ -26,7 +29,7 @@ export default function SearchPage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">全局搜索</h1>
-        <p className="text-muted-foreground mt-1">跨 2,314 家企业实时搜索，支持多维度筛选</p>
+        <p className="text-muted-foreground mt-1">跨 2,314 家企业实时搜索，支持多维度筛选。点击企业卡片查看详情、联系人和信用评级。</p>
       </div>
       <Card>
         <CardContent className="pt-4 space-y-4">
@@ -46,7 +49,7 @@ export default function SearchPage() {
             </Select>
             <Button variant={chinaOnly ? "default" : "outline"} size="sm"
               onClick={() => { setChinaOnly(!chinaOnly); setPage(1); }}>
-              🇨🇳 已在中国采购
+              已在中国采购
             </Button>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -58,12 +61,13 @@ export default function SearchPage() {
         </CardContent>
       </Card>
       <div className="text-sm text-muted-foreground">
-        {data ? `找到 ${data.total} 家企业` : isLoading ? "搜索中..." : ""}
+        {data ? "找到 " + data.total + " 家企业" : isLoading ? "搜索中..." : ""}
       </div>
       <div className="space-y-2">
         {isLoading ? Array.from({ length: 5 }).map((_, i) => <Card key={i} className="animate-pulse"><CardContent className="h-24" /></Card>) : (
           data?.data.map((c: any) => (
-            <Card key={c.id} className="hover:shadow-md transition-shadow">
+            <Card key={c.id} className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setSelectedCompany(c)}>
               <CardContent className="py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
@@ -81,8 +85,9 @@ export default function SearchPage() {
                   </div>
                   <div className="flex gap-1 shrink-0">
                     {c.websiteSocial && (
-                      <a href={c.websiteSocial.startsWith("http") ? c.websiteSocial : `https://${c.websiteSocial}`}
-                        target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-muted">
+                      <a href={c.websiteSocial.startsWith("http") ? c.websiteSocial : "https://" + c.websiteSocial}
+                        target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-muted"
+                        onClick={(e) => e.stopPropagation()}>
                         <ExternalLink className="h-4 w-4 text-muted-foreground" />
                       </a>
                     )}
@@ -100,6 +105,12 @@ export default function SearchPage() {
           <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
         </div>
       )}
+
+      <CompanyDetailDialog
+        company={selectedCompany}
+        open={!!selectedCompany}
+        onClose={() => setSelectedCompany(null)}
+      />
     </div>
   );
 }

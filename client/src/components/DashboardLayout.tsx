@@ -21,27 +21,59 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Globe, Map, MapPin, Heart, Users, Mail, Shield, Search, FileText, TrendingUp } from "lucide-react";
+import {
+  LayoutDashboard, LogOut, PanelLeft, Globe, Map, Heart, Users, Mail, Shield, Search, FileText, TrendingUp,
+  GitBranch, Download, FlaskConical, Database
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "数据概览", path: "/" },
-  { icon: Map, label: "企业地图", path: "/map" },
-  { icon: Globe, label: "地区导航", path: "/regions" },
-  { icon: Search, label: "全局搜索", path: "/search" },
-  { icon: TrendingUp, label: "市场洞察", path: "/insights" },
-  { icon: FileText, label: "报告全文", path: "/report" },
-  { icon: Heart, label: "收藏夹 CRM", path: "/favorites" },
-  { icon: Users, label: "团队管理", path: "/teams" },
-  { icon: Mail, label: "询盘邮件", path: "/inquiry" },
-  { icon: Shield, label: "管理后台", path: "/admin" },
+type MenuItem = { icon: any; label: string; path: string; adminOnly?: boolean };
+type MenuGroup = { title: string; items: MenuItem[] };
+
+const menuGroups: MenuGroup[] = [
+  {
+    title: "数据浏览",
+    items: [
+      { icon: LayoutDashboard, label: "数据概览", path: "/" },
+      { icon: Map, label: "企业地图", path: "/map" },
+      { icon: Globe, label: "地区导航", path: "/regions" },
+      { icon: Search, label: "全局搜索", path: "/search" },
+      { icon: TrendingUp, label: "市场洞察", path: "/insights" },
+      { icon: FileText, label: "报告全文", path: "/report" },
+    ],
+  },
+  {
+    title: "客户管理",
+    items: [
+      { icon: Heart, label: "收藏夹 CRM", path: "/favorites" },
+      { icon: GitBranch, label: "生命周期", path: "/lifecycle" },
+      { icon: Mail, label: "询盘邮件", path: "/inquiry" },
+      { icon: FlaskConical, label: "A/B 测试", path: "/abtest" },
+    ],
+  },
+  {
+    title: "团队协作",
+    items: [
+      { icon: Users, label: "团队管理", path: "/teams" },
+      { icon: Download, label: "数据导出", path: "/export" },
+    ],
+  },
+  {
+    title: "系统管理",
+    items: [
+      { icon: Shield, label: "管理后台", path: "/admin", adminOnly: true },
+      { icon: Database, label: "数据备份", path: "/backup", adminOnly: true },
+    ],
+  },
 ];
 
+const allMenuItems = menuGroups.flatMap(g => g.items);
+
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
-const DEFAULT_WIDTH = 280;
+const DEFAULT_WIDTH = 260;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 480;
 
@@ -120,8 +152,9 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const activeMenuItem = allMenuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (isCollapsed) {
@@ -178,7 +211,7 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate">
+                  <span className="font-semibold tracking-tight truncate text-sm">
                     全球禽业数据平台
                   </span>
                 </div>
@@ -186,27 +219,40 @@ function DashboardLayoutContent({
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
-                const isActive = location === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => setLocation(item.path)}
-                      tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+          <SidebarContent className="gap-0 overflow-y-auto">
+            {menuGroups.map((group) => {
+              const visibleItems = group.items.filter(item => !item.adminOnly || isAdmin);
+              if (visibleItems.length === 0) return null;
+              return (
+                <div key={group.title} className="mb-1">
+                  {!isCollapsed && (
+                    <div className="px-4 pt-3 pb-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{group.title}</span>
+                    </div>
+                  )}
+                  <SidebarMenu className="px-2 py-0.5">
+                    {visibleItems.map(item => {
+                      const isActive = location === item.path || (item.path !== "/" && location.startsWith(item.path));
+                      return (
+                        <SidebarMenuItem key={item.path}>
+                          <SidebarMenuButton
+                            isActive={isActive}
+                            onClick={() => setLocation(item.path)}
+                            tooltip={item.label}
+                            className="h-9 transition-all font-normal text-sm"
+                          >
+                            <item.icon
+                              className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
+                            />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </div>
+              );
+            })}
           </SidebarContent>
 
           <SidebarFooter className="p-3">
@@ -223,7 +269,7 @@ function DashboardLayoutContent({
                       {user?.name || "-"}
                     </p>
                     <p className="text-xs text-muted-foreground truncate mt-1.5">
-                      {user?.email || "-"}
+                      {user?.role === "admin" ? "管理员" : "成员"}
                     </p>
                   </div>
                 </button>
@@ -265,7 +311,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
     </>
   );

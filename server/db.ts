@@ -2,7 +2,9 @@ import { eq, and, like, or, sql, desc, asc, count } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, companies, favorites, teams, teamMembers,
-  teamSharedCompanies, inquiryTemplates, smtpConfigs, emailHistory, auditLogs
+  teamSharedCompanies, inquiryTemplates, smtpConfigs, emailHistory, auditLogs,
+  companyContacts, companyCreditRatings, customerLifecycle, abTestTemplates,
+  teamRegionAccess, backupRecords
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -273,6 +275,162 @@ export async function getAuditLogs(page = 1, pageSize = 50) {
   const [t] = await db.select({ cnt: count() }).from(auditLogs);
   const data = await db.select().from(auditLogs).innerJoin(users, eq(auditLogs.userId, users.id)).orderBy(desc(auditLogs.createdAt)).limit(pageSize).offset((page - 1) * pageSize);
   return { data, total: t.cnt };
+}
+
+// ==================== COMPANY CONTACTS (V2.0) ====================
+export async function getCompanyContacts(companyId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(companyContacts).where(eq(companyContacts.companyId, companyId)).orderBy(desc(companyContacts.isPrimary), asc(companyContacts.id));
+}
+
+export async function addCompanyContact(data: { companyId: number; name: string; title?: string; email?: string; phone?: string; linkedin?: string; isPrimary?: boolean; addedByUserId?: number }) {
+  const db = await getDb();
+  if (!db) return null;
+  const r = await db.insert(companyContacts).values(data as any);
+  return Number(r[0].insertId);
+}
+
+export async function updateCompanyContact(id: number, data: Record<string, any>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(companyContacts).set(data).where(eq(companyContacts.id, id));
+}
+
+export async function deleteCompanyContact(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(companyContacts).where(eq(companyContacts.id, id));
+}
+
+// ==================== CREDIT RATINGS (V2.0) ====================
+export async function getCompanyCreditRating(companyId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const r = await db.select().from(companyCreditRatings).where(eq(companyCreditRatings.companyId, companyId)).limit(1);
+  return r[0] || null;
+}
+
+export async function upsertCreditRating(companyId: number, data: { registeredCapital?: string; foundedYear?: number; importFrequency?: string; cooperationHistory?: string; creditScore?: number; ratedByUserId?: number }) {
+  const db = await getDb();
+  if (!db) return;
+  const ex = await db.select().from(companyCreditRatings).where(eq(companyCreditRatings.companyId, companyId)).limit(1);
+  if (ex.length) await db.update(companyCreditRatings).set(data as any).where(eq(companyCreditRatings.companyId, companyId));
+  else await db.insert(companyCreditRatings).values({ companyId, ...data } as any);
+}
+
+// ==================== CUSTOMER LIFECYCLE (V2.0) ====================
+export async function getLifecycleFunnel(userId: number) {
+  const db = await getDb();
+  if (!db) return { stages: [], items: [] };
+  const items = await db.select().from(customerLifecycle)
+    .innerJoin(companies, eq(customerLifecycle.companyId, companies.id))
+    .where(eq(customerLifecycle.userId, userId))
+    .orderBy(desc(customerLifecycle.movedAt));
+  const stages = await db.select({ stage: customerLifecycle.stage, cnt: count() })
+    .from(customerLifecycle).where(eq(customerLifecycle.userId, userId))
+    .groupBy(customerLifecycle.stage);
+  return { stages, items };
+}
+
+export async function addToLifecycle(userId: number, companyId: number, stage: string, data?: { dealValue?: string; expectedCloseDate?: Date; notes?: string }) {
+  const db = await getDb();
+  if (!db) return null;
+  const ex = await db.select().from(customerLifecycle).where(and(eq(customerLifecycle.userId, userId), eq(customerLifecycle.companyId, companyId))).limit(1);
+  if (ex.length) {
+    await db.update(customerLifecycle).set({ stage: stage as any, movedAt: new Date(), ...data } as any)
+      .where(and(eq(customerLifecycle.userId, userId), eq(customerLifecycle.companyId, companyId)));
+    return ex[0].id;
+  }
+  const r = await db.insert(customerLifecycle).values({ userId, companyId, stage: stage as any, ...data } as any);
+  return Number(r[0].insertId);
+}
+
+export async function removeFromLifecycle(userId: number, companyId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(customerLifecycle).where(and(eq(customerLifecycle.userId, userId), eq(customerLifecycle.companyId, companyId)));
+}
+
+// ==================== A/B TEST (V2.0) ====================
+export async function getUserAbTests(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(abTestTemplates).where(eq(abTestTemplates.userId, userId)).orderBy(desc(abTestTemplates.createdAt));
+}
+
+export async function createAbTest(userId: number, data: { name: string; variantA_subject?: string; variantA_body?: string; variantB_subject?: string; variantB_body?: string }) {
+  const db = await getDb();
+  if (!db) return null;
+  const r = await db.insert(abTestTemplates).values({ userId, ...data } as any);
+  return Number(r[0].insertId);
+}
+
+export async function updateAbTestStats(id: number, variant: 'A' | 'B', field: 'sent' | 'opened' | 'replied') {
+  const db = await getDb();
+  if (!db) return;
+  const col = `variant${variant}_${field}` as any;
+  await db.update(abTestTemplates).set({ [col]: sql`${sql.identifier(col)} + 1` } as any).where(eq(abTestTemplates.id, id));
+}
+
+export async function deleteAbTest(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(abTestTemplates).where(eq(abTestTemplates.id, id));
+}
+
+// ==================== TEAM REGION ACCESS (V2.0) ====================
+export async function getTeamRegionAccess(teamId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(teamRegionAccess).where(eq(teamRegionAccess.teamId, teamId));
+}
+
+export async function setTeamRegionAccess(teamId: number, regions: { continent?: string; country?: string }[]) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(teamRegionAccess).where(eq(teamRegionAccess.teamId, teamId));
+  if (regions.length > 0) {
+    await db.insert(teamRegionAccess).values(regions.map(r => ({ teamId, ...r })) as any);
+  }
+}
+
+// ==================== BACKUP RECORDS (V2.0) ====================
+export async function addBackupRecord(data: { fileName: string; fileUrl?: string; fileSize?: number; recordCount?: number; backupType?: string; createdByUserId?: number }) {
+  const db = await getDb();
+  if (!db) return null;
+  const r = await db.insert(backupRecords).values(data as any);
+  return Number(r[0].insertId);
+}
+
+export async function getBackupRecords(page = 1, pageSize = 20) {
+  const db = await getDb();
+  if (!db) return { data: [], total: 0 };
+  const [t] = await db.select({ cnt: count() }).from(backupRecords);
+  const data = await db.select().from(backupRecords).orderBy(desc(backupRecords.createdAt)).limit(pageSize).offset((page - 1) * pageSize);
+  return { data, total: t.cnt };
+}
+
+// ==================== DATA EXPORT (V2.0) ====================
+export async function exportCompanies(opts: { continent?: string; country?: string; role?: string; chinaOnly?: boolean }) {
+  const db = await getDb();
+  if (!db) return [];
+  const conds = [];
+  if (opts.continent) conds.push(eq(companies.continent, opts.continent));
+  if (opts.country) conds.push(eq(companies.country, opts.country));
+  if (opts.role) conds.push(like(companies.coreRole, `%${opts.role}%`));
+  if (opts.chinaOnly) conds.push(eq(companies.hasPurchasedFromChina, '是'));
+  const where = conds.length > 0 ? and(...conds) : undefined;
+  return db.select().from(companies).where(where).orderBy(asc(companies.id));
+}
+
+export async function exportFavorites(userId: number, status?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const conds = [eq(favorites.userId, userId)];
+  if (status) conds.push(eq(favorites.followUpStatus, status as any));
+  return db.select().from(favorites).innerJoin(companies, eq(favorites.companyId, companies.id))
+    .where(and(...conds)).orderBy(desc(favorites.updatedAt));
 }
 
 // ==================== SMTP ====================

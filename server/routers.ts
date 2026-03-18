@@ -85,6 +85,85 @@ export const appRouter = router({
     }),
   }),
 
+  // V2.0: 联系人管理
+  contact: router({
+    list: publicProcedure.input(z.object({ companyId: z.number() })).query(({ input }) => db.getCompanyContacts(input.companyId)),
+    add: protectedProcedure.input(z.object({
+      companyId: z.number(), name: z.string().min(1), title: z.string().optional(),
+      email: z.string().optional(), phone: z.string().optional(), linkedin: z.string().optional(), isPrimary: z.boolean().optional(),
+    })).mutation(({ ctx, input }) => db.addCompanyContact({ ...input, addedByUserId: ctx.user.id })),
+    update: protectedProcedure.input(z.object({
+      id: z.number(), name: z.string().optional(), title: z.string().optional(),
+      email: z.string().optional(), phone: z.string().optional(), linkedin: z.string().optional(), isPrimary: z.boolean().optional(),
+    })).mutation(({ input }) => { const { id, ...data } = input; return db.updateCompanyContact(id, data); }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteCompanyContact(input.id)),
+  }),
+
+  // V2.0: 信用评级
+  credit: router({
+    get: publicProcedure.input(z.object({ companyId: z.number() })).query(({ input }) => db.getCompanyCreditRating(input.companyId)),
+    upsert: protectedProcedure.input(z.object({
+      companyId: z.number(), registeredCapital: z.string().optional(), foundedYear: z.number().optional(),
+      importFrequency: z.string().optional(), cooperationHistory: z.string().optional(), creditScore: z.number().optional(),
+    })).mutation(({ ctx, input }) => { const { companyId, ...data } = input; return db.upsertCreditRating(companyId, { ...data, ratedByUserId: ctx.user.id }); }),
+  }),
+
+  // V2.0: 客户生命周期漏斗
+  lifecycle: router({
+    funnel: protectedProcedure.query(({ ctx }) => db.getLifecycleFunnel(ctx.user.id)),
+    add: protectedProcedure.input(z.object({
+      companyId: z.number(), stage: z.enum(['prospect', 'contacted', 'quoted', 'won', 'repurchase']),
+      dealValue: z.string().optional(), expectedCloseDate: z.date().optional(), notes: z.string().optional(),
+    })).mutation(({ ctx, input }) => { const { companyId, stage, ...data } = input; return db.addToLifecycle(ctx.user.id, companyId, stage, data); }),
+    remove: protectedProcedure.input(z.object({ companyId: z.number() })).mutation(({ ctx, input }) => db.removeFromLifecycle(ctx.user.id, input.companyId)),
+  }),
+
+  // V2.0: A/B测试
+  abTest: router({
+    list: protectedProcedure.query(({ ctx }) => db.getUserAbTests(ctx.user.id)),
+    create: protectedProcedure.input(z.object({
+      name: z.string().min(1), variantA_subject: z.string().optional(), variantA_body: z.string().optional(),
+      variantB_subject: z.string().optional(), variantB_body: z.string().optional(),
+    })).mutation(({ ctx, input }) => db.createAbTest(ctx.user.id, input)),
+    updateStats: protectedProcedure.input(z.object({
+      id: z.number(), variant: z.enum(['A', 'B']), field: z.enum(['sent', 'opened', 'replied']),
+    })).mutation(({ input }) => db.updateAbTestStats(input.id, input.variant, input.field)),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteAbTest(input.id)),
+  }),
+
+  // V2.0: 数据导出
+  export: router({
+    companies: protectedProcedure.input(z.object({
+      continent: z.string().optional(), country: z.string().optional(), role: z.string().optional(), chinaOnly: z.boolean().optional(),
+    })).query(({ input }) => db.exportCompanies(input)),
+    favorites: protectedProcedure.input(z.object({ status: z.string().optional() }))
+      .query(({ ctx, input }) => db.exportFavorites(ctx.user.id, input.status)),
+  }),
+
+  // V2.0: 团队区域权限
+  regionAccess: router({
+    get: protectedProcedure.input(z.object({ teamId: z.number() })).query(({ input }) => db.getTeamRegionAccess(input.teamId)),
+    set: adminProcedure.input(z.object({
+      teamId: z.number(), regions: z.array(z.object({ continent: z.string().optional(), country: z.string().optional() })),
+    })).mutation(({ input }) => db.setTeamRegionAccess(input.teamId, input.regions)),
+  }),
+
+  // V2.0: 数据备份
+  backup: router({
+    list: adminProcedure.input(z.object({ page: z.number().optional(), pageSize: z.number().optional() }))
+      .query(({ input }) => db.getBackupRecords(input.page, input.pageSize)),
+    create: adminProcedure.mutation(async ({ ctx }) => {
+      const allCompanies = await db.exportCompanies({});
+      const id = await db.addBackupRecord({
+        fileName: `backup_${new Date().toISOString().slice(0, 10)}.json`,
+        recordCount: allCompanies.length,
+        backupType: 'manual',
+        createdByUserId: ctx.user.id,
+      });
+      return { id, recordCount: allCompanies.length };
+    }),
+  }),
+
   admin: router({
     updateCompany: adminProcedure.input(z.object({ id: z.number(), data: z.record(z.string(), z.any()) }))
       .mutation(async ({ ctx, input }) => {

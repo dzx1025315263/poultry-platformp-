@@ -18,6 +18,10 @@ const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
 const TeamsPage = lazy(() => import("./pages/TeamsPage"));
 const InquiryPage = lazy(() => import("./pages/InquiryPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const LifecyclePage = lazy(() => import("./pages/LifecyclePage"));
+const ExportPage = lazy(() => import("./pages/ExportPage"));
+const AbTestPage = lazy(() => import("./pages/AbTestPage"));
+const BackupPage = lazy(() => import("./pages/BackupPage"));
 
 function PageLoader() {
   return (
@@ -43,6 +47,10 @@ function Router() {
           <Route path="/teams" component={TeamsPage} />
           <Route path="/inquiry" component={InquiryPage} />
           <Route path="/admin" component={AdminPage} />
+          <Route path="/lifecycle" component={LifecyclePage} />
+          <Route path="/export" component={ExportPage} />
+          <Route path="/abtest" component={AbTestPage} />
+          <Route path="/backup" component={BackupPage} />
           <Route path="/404" component={NotFound} />
           <Route component={NotFound} />
         </Switch>

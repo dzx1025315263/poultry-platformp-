@@ -15,6 +15,13 @@
       "when": 1773839711424,
       "tag": "0001_secret_mentor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1773843697667,
+      "tag": "0002_cold_junta",
+      "breakpoints": true
     }
   ]
 }
