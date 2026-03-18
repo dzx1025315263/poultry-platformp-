@@ -21,15 +21,23 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Globe, Map, MapPin, Heart, Users, Mail, Shield, Search, FileText, TrendingUp } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
+  { icon: LayoutDashboard, label: "数据概览", path: "/" },
+  { icon: Map, label: "企业地图", path: "/map" },
+  { icon: Globe, label: "地区导航", path: "/regions" },
+  { icon: Search, label: "全局搜索", path: "/search" },
+  { icon: TrendingUp, label: "市场洞察", path: "/insights" },
+  { icon: FileText, label: "报告全文", path: "/report" },
+  { icon: Heart, label: "收藏夹 CRM", path: "/favorites" },
+  { icon: Users, label: "团队管理", path: "/teams" },
+  { icon: Mail, label: "询盘邮件", path: "/inquiry" },
+  { icon: Shield, label: "管理后台", path: "/admin" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -62,10 +70,10 @@ export default function DashboardLayout({
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
+登录全球禽业数据平台
             </h1>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
+访问全球禽业数据协作平台需要登录。请点击下方按钮继续。
             </p>
           </div>
           <Button
@@ -75,7 +83,7 @@ export default function DashboardLayout({
             size="lg"
             className="w-full shadow-lg hover:shadow-xl transition-all"
           >
-            Sign in
+登录
           </Button>
         </div>
       </div>
@@ -171,7 +179,7 @@ function DashboardLayoutContent({
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-semibold tracking-tight truncate">
-                    Navigation
+                    全球禽业数据平台
                   </span>
                 </div>
               ) : null}
@@ -226,7 +234,7 @@ function DashboardLayoutContent({
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sign out</span>
+                  <span>退出登录</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

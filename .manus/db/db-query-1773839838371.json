@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE companies MODIFY COLUMN hasPurchasedFromChina varchar(500) DEFAULT '否';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2UEQVa5CAjdj7je.root --database ftiSfbsLTQqvqGTMZUS5kG --execute ALTER TABLE companies MODIFY COLUMN hasPurchasedFromChina varchar(500) DEFAULT '否';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2102
+}
