@@ -27,6 +27,7 @@ const FeishuSettingsPage = lazy(() => import("./pages/FeishuSettingsPage"));
 const AiRecommendPage = lazy(() => import("./pages/AiRecommendPage"));
 const EmailAutomationPage = lazy(() => import("./pages/EmailAutomationPage"));
 const TodoPage = lazy(() => import("./pages/TodoPage"));
+const WeeklyReportPage = lazy(() => import("./pages/WeeklyReportPage"));
 
 function PageLoader() {
   return (
@@ -61,6 +62,7 @@ function Router() {
           <Route path="/ai-recommend" component={AiRecommendPage} />
           <Route path="/email-automation" component={EmailAutomationPage} />
           <Route path="/todo" component={TodoPage} />
+          <Route path="/weekly-report" component={WeeklyReportPage} />
           <Route path="/404" component={NotFound} />
           <Route component={NotFound} />
         </Switch>

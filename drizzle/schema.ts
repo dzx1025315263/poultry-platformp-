@@ -265,3 +265,28 @@ export const poultryTradeData = mysqlTable("poultry_trade_data", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+// V2.4: 每周全球市场分析报告表
+export const weeklyMarketReports = mysqlTable("weekly_market_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  weekLabel: varchar("weekLabel", { length: 50 }).notNull(), // e.g. "2026-W11"
+  reportDate: timestamp("reportDate").notNull(),
+  status: mysqlEnum("status", ["generating", "completed", "failed"]).default("generating").notNull(),
+  // Part 1: 全球宏观与贸易格局
+  part1_macroLandscape: text("part1_macroLandscape"),
+  // Part 2: 核心产区价格核准
+  part2_priceVerification: text("part2_priceVerification"),
+  // Part 3: 国际航运费率与物流预警
+  part3_logisticsAlerts: text("part3_logisticsAlerts"),
+  // Part 4: 大客户开发指南与实战话术
+  part4_keyAccountGuide: text("part4_keyAccountGuide"),
+  // Part 5: 外贸风控模型与结算建议
+  part5_riskControl: text("part5_riskControl"),
+  // Part 6: 本周行动指南
+  part6_actionItems: text("part6_actionItems"),
+  // 数据来源引用
+  references: text("references"),
+  generatedByUserId: int("generatedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});

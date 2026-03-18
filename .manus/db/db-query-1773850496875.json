@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `weekly_market_reports` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`weekLabel` varchar(50) NOT NULL,\n\t`reportDate` timestamp NOT NULL,\n\t`status` enum('generating','completed','failed') NOT NULL DEFAULT 'generating',\n\t`part1_macroLandscape` text,\n\t`part2_priceVerification` text,\n\t`part3_logisticsAlerts` text,\n\t`part4_keyAccountGuide` text,\n\t`part5_riskControl` text,\n\t`part6_actionItems` text,\n\t`references` text,\n\t`generatedByUserId` int,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `weekly_market_reports_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2UEQVa5CAjdj7je.root --database ftiSfbsLTQqvqGTMZUS5kG --execute CREATE TABLE `weekly_market_reports` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`weekLabel` varchar(50) NOT NULL,\n\t`reportDate` timestamp NOT NULL,\n\t`status` enum('generating','completed','failed') NOT NULL DEFAULT 'generating',\n\t`part1_macroLandscape` text,\n\t`part2_priceVerification` text,\n\t`part3_logisticsAlerts` text,\n\t`part4_keyAccountGuide` text,\n\t`part5_riskControl` text,\n\t`part6_actionItems` text,\n\t`references` text,\n\t`generatedByUserId` int,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `weekly_market_reports_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1671
+}

@@ -571,6 +571,119 @@ export const appRouter = router({
       }),
   }),
 
+  // V2.4: 每周全球市场分析报告
+  weeklyReport: router({
+    list: protectedProcedure.input(z.object({ page: z.number().optional(), pageSize: z.number().optional() }).optional())
+      .query(({ input }) => db.getWeeklyReports(input?.pageSize || 20, ((input?.page || 1) - 1) * (input?.pageSize || 20))),
+    latest: protectedProcedure.query(() => db.getLatestWeeklyReport()),
+    get: protectedProcedure.input(z.object({ id: z.number() }))
+      .query(({ input }) => db.getWeeklyReportById(input.id)),
+    getByWeek: protectedProcedure.input(z.object({ weekLabel: z.string() }))
+      .query(({ input }) => db.getWeeklyReportByWeek(input.weekLabel)),
+    delete: adminProcedure.input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => { await db.deleteWeeklyReport(input.id); return { success: true }; }),
+    
+    // 手动触发生成报告
+    generate: protectedProcedure.input(z.object({ weekLabel: z.string().optional() }).optional())
+      .mutation(async ({ ctx, input }) => {
+        // 计算当前周标签
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const weekNum = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7);
+        const weekLabel = input?.weekLabel || `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+        
+        // 检查是否已存在
+        const existing = await db.getWeeklyReportByWeek(weekLabel);
+        if (existing && existing.status === 'completed') {
+          return { id: existing.id, weekLabel, status: 'already_exists' };
+        }
+        
+        // 创建报告记录
+        const reportId = existing?.id || await db.createWeeklyReport({ weekLabel, reportDate: now, generatedByUserId: ctx.user.id });
+        if (existing) await db.updateWeeklyReport(existing.id, { status: 'generating' });
+        
+        // 获取平台内的贸易数据作为上下文
+        const tradeData = await db.getPoultryTradeData();
+        const tradeContext = tradeData.slice(0, 30).map((t: any) => 
+          `${t.country} ${t.year}: 进口量${t.importQuantityTons}吨, 金额$${t.importValueUsd}, 单价$${t.unitPriceUsd}/kg, 同比${t.yoyChange}`
+        ).join('\n');
+        
+        // 获取平台企业数据统计
+        const companyStats = await db.searchCompanies({ page: 1, pageSize: 1 });
+        
+        try {
+          // 使用LLM生成6部分报告
+          const systemPrompt = `你是一位资深的全球禽肉行业外贸分析师，专注于肉鸡（白羽肉鸡）行业的国际贸易分析。
+你需要生成一份专业的每周全球肉鸡行业市场分析报告，格式参考以下结构：
+
+报告必须包含6个部分，每部分用JSON格式返回，包含中英文双语内容：
+1. 全球宏观与贸易格局（供需基本面、HPAI疫情、贸易壁垒）
+2. 全球核心产区生产因素与价格核准（中国/巴西/美国/泰国/乌克兰价格监测）
+3. 国际航运费率与物流预警（航线费率、港口拥堵、附加费）
+4. 全球大客户开发指南与实战话术（按区域推荐目标客户和话术）
+5. 外贸风控模型与结算建议（按市场风险等级推荐结算方式）
+6. 本周行动指南（3-5条具体可执行建议）
+
+数据来源参考：World Bank, USDA FAS, Aviagen, JBzyw.com, ABPA, Krungsri Research, Wattagnet
+
+请用Markdown格式撰写每个部分，包含表格、数据和分析。价格用人民币元/斤 + 美元/kg双标注。`;
+
+          const userPrompt = `请生成${weekLabel}周的全球肉鸡行业外贸深度分析报告。
+
+平台已有贸易数据参考：\n${tradeContext}\n\n平台企业数据库共${companyStats.total}家企业。\n\n请严格按照JSON格式返回，包含以下6个字段：
+{"part1": "第一部分内容(Markdown)", "part2": "...", "part3": "...", "part4": "...", "part5": "...", "part6": "...", "references": "参考文献列表"}`;
+
+          const response = await invokeLLM({
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: 'weekly_report',
+                strict: true,
+                schema: {
+                  type: 'object',
+                  properties: {
+                    part1: { type: 'string', description: '全球宏观与贸易格局' },
+                    part2: { type: 'string', description: '核心产区价格核准' },
+                    part3: { type: 'string', description: '航运费率与物流预警' },
+                    part4: { type: 'string', description: '大客户开发指南' },
+                    part5: { type: 'string', description: '风控模型与结算建议' },
+                    part6: { type: 'string', description: '本周行动指南' },
+                    references: { type: 'string', description: '参考文献' },
+                  },
+                  required: ['part1', 'part2', 'part3', 'part4', 'part5', 'part6', 'references'],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+          
+          const rawContent = response.choices[0].message.content;
+          const content = JSON.parse(typeof rawContent === 'string' ? rawContent : '{}');
+          const rid = typeof reportId === 'number' ? reportId : Number(reportId);
+          await db.updateWeeklyReport(rid, {
+            status: 'completed',
+            part1_macroLandscape: content.part1,
+            part2_priceVerification: content.part2,
+            part3_logisticsAlerts: content.part3,
+            part4_keyAccountGuide: content.part4,
+            part5_riskControl: content.part5,
+            part6_actionItems: content.part6,
+            references: content.references,
+          });
+          
+          return { id: rid, weekLabel, status: 'completed' };
+        } catch (err: any) {
+          const rid = typeof reportId === 'number' ? reportId : Number(reportId);
+          await db.updateWeeklyReport(rid, { status: 'failed' });
+          throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: `报告生成失败: ${err.message}` });
+        }
+      }),
+  }),
+
   admin: router({
     updateCompany: adminProcedure.input(z.object({ id: z.number(), data: z.record(z.string(), z.any()) }))
       .mutation(async ({ ctx, input }) => {

@@ -1,0 +1,61 @@
+全球肉鸡行业外贸深度早报 结构分析
+===================================
+
+报告结构（10页）：
+第一部分：全球宏观与贸易格局
+  1. 供需基本面与宏观变量（USDA/世界银行数据）
+  2. 全球禽流感(HPAI H5N1)疫情与贸易壁垒（美国/欧洲/巴西）
+
+第二部分：全球核心产区生产因素与价格核准
+  1. 中国主产区价格监测（数据来源：Mysteel, JBzyw.com）
+     - 品类表格：毛鸡棚前价/进厂价、翅中、大凤爪、小凤爪、单冻大胸
+     - 字段：品类/规格产区/最新价格/环比走势/市场点评
+
+数据来源列表：
+- USDA（美国农业部）
+- 世界银行
+- Mysteel
+- JBzyw.com（鸡病专业网/禽价格）
+- 微信公众号"小明农牧"
+
+价格格式：人民币元/斤 + 美元/kg 双标注
+趋势标记：↓回落 / →平稳偏弱 / ↓高位承压 / →窄幅波动
+
+完整报告结构（6大部分）：
+===================================
+
+第一部分：全球宏观与贸易格局
+  1. 供需基本面与宏观变量（USDA/世界银行数据）
+  2. 全球禽流感(HPAI H5N1)疫情与贸易壁垒
+
+第二部分：全球核心产区生产因素与价格核准
+  1. 中国主产区价格监测（Mysteel/JBzyw.com）
+  2. 巴西出口价格基准（FOB Santos）
+  3. 美国出口价格基准（USDA）
+  4. 泰国：亚洲最大鸡肉出口国
+  5. 乌克兰：战争阴影下的欧洲粮仓
+
+第三部分：国际航运费率与物流预警
+  - 航线费率表（40'RH集装箱）
+  - 风险提示（港口拥堵/PSS附加费/冻插紧张）
+
+第四部分：全球大客户开发指南与实战话术
+  - 泰国及东南亚市场（CP Foods/Betagro/San Miguel/Dabaco）
+  - 乌克兰及欧洲市场（MHP/Jan Zandbergen/Armin Plus/Kühne+Heitz）
+  - 日本与中东市场（Cargill Japan/Starzen/Almarai/Americana Foods）
+
+第五部分：外贸风控模型与结算建议
+  - 按目标市场风险等级推荐结算方式
+
+第六部分：今日行动指南
+  - 3条具体可执行建议
+
+参考文献/数据来源：
+[1] World Bank - Commodity Markets Outlook
+[2] USDA FAS - Poultry and Products Annual Report
+[3] Aviagen - Broiler Economics
+[4] JBzyw.com - 禽肉市场价格
+[5] ABPA - Brazilian chicken exports
+[6] Krungsri Research - Industry Outlook
+[7] Wattagnet - Thailand's poultry exports
+[8] USDA/FAS - Ukraine Poultry and Products Annual Report

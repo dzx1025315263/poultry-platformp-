@@ -5,7 +5,7 @@ import {
   teamSharedCompanies, inquiryTemplates, smtpConfigs, emailHistory, auditLogs,
   companyContacts, companyCreditRatings, customerLifecycle, abTestTemplates,
   teamRegionAccess, backupRecords, poultryTradeData,
-  aiRecommendExclusions, todoItems, emailBatchJobs
+  aiRecommendExclusions, todoItems, emailBatchJobs, weeklyMarketReports
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -606,4 +606,67 @@ export async function updateEmailBatchJob(id: number, data: { status?: string; s
   const db = await getDb();
   if (!db) return;
   await db.update(emailBatchJobs).set(data as any).where(eq(emailBatchJobs.id, id));
+}
+
+// ===== V2.4: 每周全球市场分析报告 =====
+export async function getWeeklyReports(limit = 20, offset = 0) {
+  const db = await getDb();
+  if (!db) return { data: [], total: 0 };
+  const data = await db.select().from(weeklyMarketReports).orderBy(desc(weeklyMarketReports.reportDate)).limit(limit).offset(offset);
+  const [{ cnt }] = await db.select({ cnt: count() }).from(weeklyMarketReports);
+  return { data, total: cnt };
+}
+
+export async function getWeeklyReportById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [report] = await db.select().from(weeklyMarketReports).where(eq(weeklyMarketReports.id, id));
+  return report || null;
+}
+
+export async function getLatestWeeklyReport() {
+  const db = await getDb();
+  if (!db) return null;
+  const [report] = await db.select().from(weeklyMarketReports).where(eq(weeklyMarketReports.status, "completed")).orderBy(desc(weeklyMarketReports.reportDate)).limit(1);
+  return report || null;
+}
+
+export async function getWeeklyReportByWeek(weekLabel: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [report] = await db.select().from(weeklyMarketReports).where(eq(weeklyMarketReports.weekLabel, weekLabel));
+  return report || null;
+}
+
+export async function createWeeklyReport(data: { weekLabel: string; reportDate: Date; generatedByUserId?: number }) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [result] = await db.insert(weeklyMarketReports).values({
+    weekLabel: data.weekLabel,
+    reportDate: data.reportDate,
+    status: "generating",
+    generatedByUserId: data.generatedByUserId || null,
+  });
+  return result.insertId;
+}
+
+export async function updateWeeklyReport(id: number, data: Partial<{
+  status: "generating" | "completed" | "failed";
+  part1_macroLandscape: string;
+  part2_priceVerification: string;
+  part3_logisticsAlerts: string;
+  part4_keyAccountGuide: string;
+  part5_riskControl: string;
+  part6_actionItems: string;
+  references: string;
+}>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(weeklyMarketReports).set(data).where(eq(weeklyMarketReports.id, id));
+}
+
+export async function deleteWeeklyReport(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(weeklyMarketReports).where(eq(weeklyMarketReports.id, id));
 }
