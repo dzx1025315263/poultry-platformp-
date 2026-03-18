@@ -6,6 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import * as db from "./db";
+import { notifyFavoriteChange, notifyStatusUpdate, notifyContactImport } from "./feishuWebhook";
 
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== 'admin' && ctx.user.role !== 'editor') {
@@ -40,11 +41,28 @@ export const appRouter = router({
   favorite: router({
     list: protectedProcedure.query(({ ctx }) => db.getUserFavorites(ctx.user.id)),
     ids: protectedProcedure.query(({ ctx }) => db.getUserFavoriteIds(ctx.user.id)),
-    add: protectedProcedure.input(z.object({ companyId: z.number() })).mutation(({ ctx, input }) => db.addFavorite(ctx.user.id, input.companyId)),
-    remove: protectedProcedure.input(z.object({ companyId: z.number() })).mutation(({ ctx, input }) => db.removeFavorite(ctx.user.id, input.companyId)),
+    add: protectedProcedure.input(z.object({ companyId: z.number() })).mutation(async ({ ctx, input }) => {
+      const result = await db.addFavorite(ctx.user.id, input.companyId);
+      const company = await db.getCompanyById(input.companyId);
+      notifyFavoriteChange({ userName: ctx.user.name || '未知用户', companyName: company?.companyName || `ID:${input.companyId}`, action: 'add' }).catch(() => {});
+      return result;
+    }),
+    remove: protectedProcedure.input(z.object({ companyId: z.number() })).mutation(async ({ ctx, input }) => {
+      const company = await db.getCompanyById(input.companyId);
+      await db.removeFavorite(ctx.user.id, input.companyId);
+      notifyFavoriteChange({ userName: ctx.user.name || '未知用户', companyName: company?.companyName || `ID:${input.companyId}`, action: 'remove' }).catch(() => {});
+    }),
     update: protectedProcedure.input(z.object({
       companyId: z.number(), followUpStatus: z.string().optional(), followUpDate: z.date().nullable().optional(), notes: z.string().optional(),
-    })).mutation(({ ctx, input }) => { const { companyId, ...data } = input; return db.updateFavorite(ctx.user.id, companyId, data); }),
+    })).mutation(async ({ ctx, input }) => {
+      const { companyId, ...data } = input;
+      const result = await db.updateFavorite(ctx.user.id, companyId, data);
+      if (input.followUpStatus) {
+        const company = await db.getCompanyById(companyId);
+        notifyStatusUpdate({ userName: ctx.user.name || '未知用户', companyName: company?.companyName || `ID:${companyId}`, newStatus: input.followUpStatus }).catch(() => {});
+      }
+      return result;
+    }),
   }),
 
   team: router({
@@ -97,6 +115,41 @@ export const appRouter = router({
       email: z.string().optional(), phone: z.string().optional(), linkedin: z.string().optional(), isPrimary: z.boolean().optional(),
     })).mutation(({ input }) => { const { id, ...data } = input; return db.updateCompanyContact(id, data); }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => db.deleteCompanyContact(input.id)),
+    // V2.1: 批量导入联系人
+    bulkImport: protectedProcedure.input(z.object({
+      companyId: z.number(),
+      contacts: z.array(z.object({
+        name: z.string().min(1), title: z.string().optional(),
+        email: z.string().optional(), phone: z.string().optional(), linkedin: z.string().optional(),
+      })),
+    })).mutation(async ({ ctx, input }) => {
+      const results = [];
+      for (const c of input.contacts) {
+        const id = await db.addCompanyContact({ companyId: input.companyId, ...c, addedByUserId: ctx.user.id });
+        results.push(id);
+      }
+      const company = await db.getCompanyById(input.companyId);
+      notifyContactImport({ userName: ctx.user.name || '未知用户', companyName: company?.companyName || `ID:${input.companyId}`, count: input.contacts.length }).catch(() => {});
+      return { imported: results.length };
+    }),
+    // V2.1: 批量发送邮件给企业联系人
+    bulkEmail: protectedProcedure.input(z.object({
+      companyId: z.number(),
+      contactIds: z.array(z.number()),
+      subject: z.string().min(1),
+      body: z.string().min(1),
+    })).mutation(async ({ ctx, input }) => {
+      const contacts = await db.getCompanyContacts(input.companyId);
+      const selected = contacts.filter((c: any) => input.contactIds.includes(c.id) && c.email);
+      if (selected.length === 0) throw new TRPCError({ code: 'BAD_REQUEST', message: '所选联系人中没有有效邮箱' });
+      const recipients = selected.map((c: any) => c.email).join(',');
+      await db.addEmailHistory({
+        userId: ctx.user.id, companyId: input.companyId, recipients,
+        subject: input.subject, body: input.body, sendType: 'bcc', status: 'sent',
+        internalNote: `批量发送给 ${selected.length} 个联系人`,
+      });
+      return { sent: selected.length, recipients: selected.map((c: any) => ({ name: c.name, email: c.email })) };
+    }),
   }),
 
   // V2.0: 信用评级
@@ -111,6 +164,11 @@ export const appRouter = router({
   // V2.0: 客户生命周期漏斗
   lifecycle: router({
     funnel: protectedProcedure.query(({ ctx }) => db.getLifecycleFunnel(ctx.user.id)),
+    // V2.1: 带信用评级筛选的漏斗
+    funnelWithCredit: protectedProcedure.input(z.object({
+      minCreditScore: z.number().optional(),
+      maxCreditScore: z.number().optional(),
+    }).optional()).query(({ ctx, input }) => db.getLifecycleFunnelWithCredit(ctx.user.id, input)),
     add: protectedProcedure.input(z.object({
       companyId: z.number(), stage: z.enum(['prospect', 'contacted', 'quoted', 'won', 'repurchase']),
       dealValue: z.string().optional(), expectedCloseDate: z.date().optional(), notes: z.string().optional(),
@@ -146,6 +204,16 @@ export const appRouter = router({
     set: adminProcedure.input(z.object({
       teamId: z.number(), regions: z.array(z.object({ continent: z.string().optional(), country: z.string().optional() })),
     })).mutation(({ input }) => db.setTeamRegionAccess(input.teamId, input.regions)),
+  }),
+
+  // V2.1: UN Comtrade 贸易数据
+  trade: router({
+    poultryImports: publicProcedure.input(z.object({
+      year: z.number().optional(),
+    }).optional()).query(({ input }) => db.getPoultryTradeData(input?.year)),
+    trends: publicProcedure.input(z.object({
+      country: z.string().optional(),
+    }).optional()).query(({ input }) => db.getPoultryTradeTrends(input?.country)),
   }),
 
   // V2.0: 数据备份

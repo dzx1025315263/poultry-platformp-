@@ -23,7 +23,7 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, LogOut, PanelLeft, Globe, Map, Heart, Users, Mail, Shield, Search, FileText, TrendingUp,
-  GitBranch, Download, FlaskConical, Database
+  GitBranch, Download, FlaskConical, Database, BarChart3
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -43,6 +43,7 @@ const menuGroups: MenuGroup[] = [
       { icon: Search, label: "全局搜索", path: "/search" },
       { icon: TrendingUp, label: "市场洞察", path: "/insights" },
       { icon: FileText, label: "报告全文", path: "/report" },
+      { icon: BarChart3, label: "贸易数据", path: "/trade" },
     ],
   },
   {

@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import { getLoginUrl } from "@/const";
-import { Users, TrendingUp, ArrowRight, Plus, Trash2, DollarSign, Calendar, ArrowDown } from "lucide-react";
+import { Users, Plus, Trash2, ArrowDown, Star, Filter, X } from "lucide-react";
 
 const STAGES = [
   { key: "prospect", label: "潜在客户", color: "#3b82f6", bgClass: "bg-blue-50 border-blue-200", textClass: "text-blue-700" },
@@ -17,12 +18,32 @@ const STAGES = [
   { key: "repurchase", label: "复购", color: "#a855f7", bgClass: "bg-purple-50 border-purple-200", textClass: "text-purple-700" },
 ] as const;
 
+const CREDIT_FILTERS = [
+  { value: "all", label: "全部评级", min: undefined, max: undefined },
+  { value: "excellent", label: "优秀 (80+)", min: 80, max: undefined },
+  { value: "good", label: "良好 (60-79)", min: 60, max: 79 },
+  { value: "average", label: "一般 (40-59)", min: 40, max: 59 },
+  { value: "low", label: "较低 (<40)", min: undefined, max: 39 },
+  { value: "unrated", label: "未评级", min: -1, max: -1 },
+];
+
 export default function LifecyclePage() {
   const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [addingStage, setAddingStage] = useState<string | null>(null);
+  const [creditFilter, setCreditFilter] = useState("all");
 
-  const { data: funnel, isLoading, refetch } = trpc.lifecycle.funnel.useQuery(undefined, { enabled: isAuthenticated });
+  const selectedFilter = CREDIT_FILTERS.find(f => f.value === creditFilter) || CREDIT_FILTERS[0];
+  const isFiltering = creditFilter !== "all";
+
+  // Use funnelWithCredit when filtering, otherwise use regular funnel
+  const { data: funnel, isLoading, refetch } = trpc.lifecycle.funnelWithCredit.useQuery(
+    isFiltering && selectedFilter.min !== undefined
+      ? { minCreditScore: selectedFilter.min === -1 ? undefined : selectedFilter.min, maxCreditScore: selectedFilter.max === -1 ? undefined : selectedFilter.max }
+      : {},
+    { enabled: isAuthenticated }
+  );
+
   const addMutation = trpc.lifecycle.add.useMutation({ onSuccess: () => { refetch(); toast.success("已添加到生命周期"); } });
   const removeMutation = trpc.lifecycle.remove.useMutation({ onSuccess: () => { refetch(); toast.success("已移除"); } });
 
@@ -58,10 +79,44 @@ export default function LifecyclePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">客户生命周期看板</h1>
-        <p className="text-muted-foreground">可视化管理销售漏斗，追踪客户从潜在到成交的全流程</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">客户生命周期看板</h1>
+          <p className="text-muted-foreground">可视化管理销售漏斗，追踪客户从潜在到成交的全流程</p>
+        </div>
+
+        {/* Credit Rating Filter */}
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={creditFilter} onValueChange={setCreditFilter}>
+            <SelectTrigger className="w-[160px] h-9">
+              <SelectValue placeholder="按信用评级筛选" />
+            </SelectTrigger>
+            <SelectContent>
+              {CREDIT_FILTERS.map(f => (
+                <SelectItem key={f.value} value={f.value}>
+                  <span className="flex items-center gap-1.5">
+                    {f.value !== "all" && f.value !== "unrated" && <Star className="h-3 w-3" />}
+                    {f.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {isFiltering && (
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setCreditFilter("all")}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
+
+      {isFiltering && (
+        <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-700">
+          <Star className="h-4 w-4" />
+          <span>当前筛选：<strong>{selectedFilter.label}</strong> 的客户</span>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -168,6 +223,7 @@ export default function LifecyclePage() {
               {stage.items.map((item: any) => {
                 const company = item.companies || {};
                 const lifecycle = item.customer_lifecycle || {};
+                const creditScore = item.creditScore;
                 return (
                   <div key={lifecycle.companyId || item.companyId}
                     className="p-2 border rounded-md bg-background hover:shadow-sm transition-shadow">
@@ -176,9 +232,21 @@ export default function LifecyclePage() {
                         <p className="text-xs font-medium truncate">
                           {company.companyName || "企业#" + (lifecycle.companyId || "")}
                         </p>
-                        {company.country && (
-                          <p className="text-[10px] text-muted-foreground">{company.country}</p>
-                        )}
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {company.country && (
+                            <p className="text-[10px] text-muted-foreground">{company.country}</p>
+                          )}
+                          {creditScore !== undefined && creditScore !== null && (
+                            <Badge variant="outline" className={`text-[9px] h-3.5 px-1 ${
+                              creditScore >= 80 ? 'border-green-300 text-green-600' :
+                              creditScore >= 60 ? 'border-yellow-300 text-yellow-600' :
+                              creditScore >= 40 ? 'border-orange-300 text-orange-600' :
+                              'border-red-300 text-red-600'
+                            }`}>
+                              <Star className="h-2 w-2 mr-0.5" />{creditScore}
+                            </Badge>
+                          )}
+                        </div>
                         {lifecycle.dealValue && (
                           <p className="text-[10px] text-green-600 font-medium">
                             {lifecycle.dealValue}

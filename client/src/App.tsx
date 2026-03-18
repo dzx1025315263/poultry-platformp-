@@ -22,6 +22,7 @@ const LifecyclePage = lazy(() => import("./pages/LifecyclePage"));
 const ExportPage = lazy(() => import("./pages/ExportPage"));
 const AbTestPage = lazy(() => import("./pages/AbTestPage"));
 const BackupPage = lazy(() => import("./pages/BackupPage"));
+const TradePage = lazy(() => import("./pages/TradePage"));
 
 function PageLoader() {
   return (
@@ -51,6 +52,7 @@ function Router() {
           <Route path="/export" component={ExportPage} />
           <Route path="/abtest" component={AbTestPage} />
           <Route path="/backup" component={BackupPage} />
+          <Route path="/trade" component={TradePage} />
           <Route path="/404" component={NotFound} />
           <Route component={NotFound} />
         </Switch>

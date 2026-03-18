@@ -212,3 +212,18 @@ export const backupRecords = mysqlTable("backup_records", {
   createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+// V2.1: 禽肉贸易数据表（UN Comtrade数据）
+export const poultryTradeData = mysqlTable("poultry_trade_data", {
+  id: int("id").autoincrement().primaryKey(),
+  country: varchar("country", { length: 200 }).notNull(),
+  countryCode: varchar("countryCode", { length: 10 }),
+  year: int("year").notNull(),
+  importValueUsd: text("importValueUsd"),
+  importQuantityTons: text("importQuantityTons"),
+  unitPriceUsd: text("unitPriceUsd"),
+  yoyChange: text("yoyChange"),
+  hsCode: varchar("hsCode", { length: 20 }).default("0207"),
+  source: varchar("source", { length: 100 }).default("UN Comtrade"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});

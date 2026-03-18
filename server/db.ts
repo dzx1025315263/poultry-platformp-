@@ -4,7 +4,7 @@ import {
   InsertUser, users, companies, favorites, teams, teamMembers,
   teamSharedCompanies, inquiryTemplates, smtpConfigs, emailHistory, auditLogs,
   companyContacts, companyCreditRatings, customerLifecycle, abTestTemplates,
-  teamRegionAccess, backupRecords
+  teamRegionAccess, backupRecords, poultryTradeData
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -447,4 +447,84 @@ export async function upsertSmtpConfig(userId: number, data: any) {
   const ex = await db.select().from(smtpConfigs).where(eq(smtpConfigs.userId, userId)).limit(1);
   if (ex.length) await db.update(smtpConfigs).set(data).where(eq(smtpConfigs.userId, userId));
   else await db.insert(smtpConfigs).values({ userId, ...data });
+}
+
+// ==================== LIFECYCLE WITH CREDIT (V2.1) ====================
+export async function getLifecycleFunnelWithCredit(userId: number, filters?: { minCreditScore?: number; maxCreditScore?: number }) {
+  const db = await getDb();
+  if (!db) return { stages: [], items: [] };
+
+  // Get all lifecycle items with company info
+  let items = await db.select().from(customerLifecycle)
+    .innerJoin(companies, eq(customerLifecycle.companyId, companies.id))
+    .where(eq(customerLifecycle.userId, userId))
+    .orderBy(desc(customerLifecycle.movedAt));
+
+  // If credit score filters are provided, fetch credit ratings and filter
+  if (filters?.minCreditScore !== undefined || filters?.maxCreditScore !== undefined) {
+    const companyIds = items.map((i: any) => i.customer_lifecycle.companyId);
+    if (companyIds.length === 0) return { stages: [], items: [] };
+
+    const creditRatings = await db.select().from(companyCreditRatings)
+      .where(sql`${companyCreditRatings.companyId} IN (${sql.join(companyIds.map(id => sql`${id}`), sql`, `)})`);
+
+    const creditMap = new Map(creditRatings.map(cr => [cr.companyId, cr]));
+
+    items = items.filter((item: any) => {
+      const credit = creditMap.get(item.customer_lifecycle.companyId);
+      const score = credit?.creditScore ?? 0;
+      if (filters.minCreditScore !== undefined && score < filters.minCreditScore) return false;
+      if (filters.maxCreditScore !== undefined && score > filters.maxCreditScore) return false;
+      return true;
+    });
+
+    // Attach credit info to items
+    items = items.map((item: any) => ({
+      ...item,
+      creditRating: creditMap.get(item.customer_lifecycle.companyId) || null,
+    }));
+  }
+
+  // Calculate stage counts from filtered items
+  const stageCounts: Record<string, number> = {};
+  items.forEach((item: any) => {
+    const stage = item.customer_lifecycle.stage;
+    stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+  });
+  const stages = Object.entries(stageCounts).map(([stage, cnt]) => ({ stage, cnt }));
+
+  return { stages, items };
+}
+
+// ==================== POULTRY TRADE DATA (V2.1) ====================
+export async function getPoultryTradeData(year?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const conds = [];
+  if (year) conds.push(eq(poultryTradeData.year, year));
+  const where = conds.length > 0 ? and(...conds) : undefined;
+  return db.select().from(poultryTradeData).where(where)
+    .orderBy(desc(sql`CAST(${poultryTradeData.importValueUsd} AS DECIMAL)`));
+}
+
+export async function getPoultryTradeTrends(country?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const conds = [];
+  if (country) conds.push(eq(poultryTradeData.country, country));
+  const where = conds.length > 0 ? and(...conds) : undefined;
+  return db.select().from(poultryTradeData).where(where)
+    .orderBy(asc(poultryTradeData.year), asc(poultryTradeData.country));
+}
+
+export async function insertPoultryTradeData(data: {
+  country: string; countryCode?: string; year: number;
+  importValueUsd?: string; importQuantityTons?: string; unitPriceUsd?: string;
+  yoyChange?: string; hsCode?: string; source?: string;
+}[]) {
+  const db = await getDb();
+  if (!db) return;
+  if (data.length > 0) {
+    await db.insert(poultryTradeData).values(data as any);
+  }
 }
