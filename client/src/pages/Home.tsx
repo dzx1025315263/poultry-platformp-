@@ -1,7 +1,12 @@
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, Globe, MapPin, TrendingUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Building2, Globe, MapPin, TrendingUp, Newspaper, CalendarClock, ArrowRight, Bell } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useLocation } from "wouter";
+import { Streamdown } from "streamdown";
 
 const CONTINENT_COLORS: Record<string, string> = {
   "中东": "#e67e22", "非洲": "#8e44ad", "东南亚": "#27ae60", "东亚": "#e74c3c",
@@ -9,9 +14,17 @@ const CONTINENT_COLORS: Record<string, string> = {
   "独联体/中亚": "#7f8c8d", "大洋洲": "#16a085", "其他": "#95a5a6",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  prospect: "潜在客户", contacted: "已联系", quoted: "已报价", won: "已成交", repurchase: "复购",
+};
+
 export default function Home() {
+  const { isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
   const { data: stats, isLoading: statsLoading } = trpc.company.stats.useQuery();
   const { data: countryStats, isLoading: countryLoading } = trpc.company.countryStats.useQuery();
+  const { data: latestReport } = trpc.weeklyReport.latest.useQuery(undefined, { enabled: isAuthenticated });
+  const { data: reminders } = trpc.reminder.upcoming.useQuery({ days: 7 }, { enabled: isAuthenticated });
 
   const continentData = countryStats
     ? Object.entries(
@@ -87,6 +100,106 @@ export default function Home() {
           </CardContent>
         </Card>
       </div>
+
+      {/* V2.5: 最新周报摘要 + 跟进提醒 */}
+      {isAuthenticated && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 最新周报摘要 */}
+          <Card className="lg:col-span-2 border-t-4 border-t-amber-500">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Newspaper className="h-5 w-5 text-amber-500" />
+                <CardTitle className="text-base">最新市场周报</CardTitle>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/weekly-report")} className="text-xs">
+                查看完整报告 <ArrowRight className="h-3 w-3 ml-1" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {latestReport && latestReport.status === 'completed' ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge variant="secondary">{latestReport.weekLabel}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(latestReport.reportDate).toLocaleDateString('zh-CN')}
+                    </span>
+                  </div>
+                  {/* 行动指南摘要 */}
+                  <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                    <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">本周行动指南</h4>
+                    <div className="text-sm text-amber-900 dark:text-amber-100 prose prose-sm max-w-none line-clamp-6">
+                      <Streamdown>{(latestReport as any).part6_actionItems?.slice(0, 500) || '暂无内容'}</Streamdown>
+                    </div>
+                  </div>
+                  {/* 宏观格局摘要 */}
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold mb-2">宏观格局速览</h4>
+                    <div className="text-sm text-muted-foreground prose prose-sm max-w-none line-clamp-4">
+                      <Streamdown>{(latestReport as any).part1_macroLandscape?.slice(0, 300) || '暂无内容'}</Streamdown>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Newspaper className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">暂无市场周报</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate("/weekly-report")}>
+                    前往生成本周报告
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 跟进提醒 */}
+          <Card className="border-t-4 border-t-blue-500">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarClock className="h-5 w-5 text-blue-500" />
+                <CardTitle className="text-base">近7日跟进提醒</CardTitle>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/favorites")} className="text-xs">
+                管理 <ArrowRight className="h-3 w-3 ml-1" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {reminders && reminders.length > 0 ? (
+                <div className="space-y-2">
+                  {reminders.slice(0, 6).map((r: any, i: number) => {
+                    const daysLeft = Math.ceil((new Date(r.followUpDate).getTime() - Date.now()) / 86400000);
+                    return (
+                      <div key={i} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => navigate("/favorites")}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{r.companyName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className="text-xs">{r.country}</Badge>
+                            <span className="text-xs text-muted-foreground">{STATUS_LABELS[r.followUpStatus] || r.followUpStatus}</span>
+                          </div>
+                        </div>
+                        <div className="text-right ml-2">
+                          <Badge variant={daysLeft <= 1 ? "destructive" : daysLeft <= 3 ? "default" : "secondary"} className="text-xs">
+                            {daysLeft <= 0 ? "今天" : `${daysLeft}天后`}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {reminders.length > 6 && (
+                    <p className="text-xs text-center text-muted-foreground pt-1">还有 {reminders.length - 6} 条提醒</p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">近7日无跟进提醒</p>
+                  <p className="text-xs mt-1">在收藏夹中设置跟进日期即可收到提醒</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">

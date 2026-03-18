@@ -37,6 +37,17 @@ export const appRouter = router({
     getById: publicProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getCompanyById(input.id)),
     byContinent: publicProcedure.input(z.object({ continent: z.string() })).query(({ input }) => db.getCompaniesByContinent(input.continent)),
     byCountry: publicProcedure.input(z.object({ country: z.string() })).query(({ input }) => db.getCompaniesByCountry(input.country)),
+    similar: publicProcedure.input(z.object({ companyId: z.number(), limit: z.number().optional() }))
+      .query(({ input }) => db.getSimilarCompanies(input.companyId, input.limit || 10)),
+    advancedSearch: publicProcedure.input(z.object({
+      query: z.string().optional(), continent: z.string().optional(), country: z.string().optional(),
+      role: z.string().optional(), chinaOnly: z.boolean().optional(),
+      minCreditScore: z.number().optional(), maxCreditScore: z.number().optional(),
+      hasContacts: z.boolean().optional(), hasLinkedin: z.boolean().optional(),
+      page: z.number().optional(), pageSize: z.number().optional(),
+    })).query(({ input }) => db.advancedSearchCompanies(input)),
+    changeHistory: publicProcedure.input(z.object({ companyId: z.number(), limit: z.number().optional() }))
+      .query(({ input }) => db.getCompanyChangeHistory(input.companyId, input.limit || 50)),
   }),
 
   favorite: router({
@@ -684,9 +695,42 @@ export const appRouter = router({
       }),
   }),
 
+  // V2.5: 团队活动流
+  teamActivity: router({
+    list: protectedProcedure.input(z.object({ teamId: z.number(), limit: z.number().optional(), offset: z.number().optional() }))
+      .query(({ input }) => db.getTeamActivities(input.teamId, input.limit || 50, input.offset || 0)),
+    add: protectedProcedure.input(z.object({
+      teamId: z.number(), actionType: z.string(),
+      targetType: z.string().optional(), targetId: z.number().optional(),
+      targetName: z.string().optional(), details: z.string().optional(),
+    })).mutation(({ ctx, input }) => db.addTeamActivity({
+      ...input, userId: ctx.user.id, userName: ctx.user.name || '未知用户',
+    })),
+  }),
+
+  // V2.5: 跟进提醒
+  reminder: router({
+    upcoming: protectedProcedure.input(z.object({ days: z.number().optional() }).optional())
+      .query(({ ctx, input }) => db.getUpcomingReminders(ctx.user.id, input?.days || 7)),
+  }),
+
   admin: router({
     updateCompany: adminProcedure.input(z.object({ id: z.number(), data: z.record(z.string(), z.any()) }))
       .mutation(async ({ ctx, input }) => {
+        // V2.5: 记录变更历史
+        const existing = await db.getCompanyById(input.id);
+        if (existing) {
+          for (const [key, val] of Object.entries(input.data)) {
+            const oldVal = (existing as any)[key];
+            if (oldVal !== val) {
+              await db.addCompanyChangeHistory({
+                companyId: input.id, userId: ctx.user.id,
+                userName: ctx.user.name || '未知用户',
+                fieldName: key, oldValue: String(oldVal ?? ''), newValue: String(val ?? ''),
+              });
+            }
+          }
+        }
         await db.updateCompany(input.id, input.data);
         await db.addAuditLog(ctx.user.id, 'update', 'companies', input.id, JSON.stringify(input.data));
         return { success: true };

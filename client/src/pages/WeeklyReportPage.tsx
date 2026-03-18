@@ -11,9 +11,37 @@ import { toast } from "sonner";
 import {
   Globe, TrendingUp, Ship, Users, Shield, Zap,
   RefreshCw, Calendar, FileText, ChevronLeft, ChevronRight,
-  BookOpen, AlertTriangle, Loader2
+  BookOpen, AlertTriangle, Loader2, Download
 } from "lucide-react";
 import { Streamdown } from "streamdown";
+
+function exportReportPdf(report: any) {
+  const parts = [
+    { title: '全球宏观与贸易格局', content: report.part1_macroLandscape },
+    { title: '核心产区价格核准', content: report.part2_priceVerification },
+    { title: '航运费率与物流预警', content: report.part3_logisticsAlerts },
+    { title: '大客户开发指南', content: report.part4_keyAccountGuide },
+    { title: '风控模型与结算建议', content: report.part5_riskControl },
+    { title: '本周行动指南', content: report.part6_actionItems },
+  ];
+  const dateStr = new Date(report.reportDate).toLocaleDateString('zh-CN');
+  let text = `全球肉鸡行业外贸深度分析报告\n${report.weekLabel} | ${dateStr}\n${'='.repeat(60)}\n\n`;
+  parts.forEach((p, i) => {
+    text += `\n${'\u2550'.repeat(40)}\n第${i + 1}部分：${p.title}\n${'\u2550'.repeat(40)}\n\n${p.content || '暂无内容'}\n`;
+  });
+  if (report.references) {
+    text += `\n${'\u2550'.repeat(40)}\n参考文献\n${'\u2550'.repeat(40)}\n\n${report.references}\n`;
+  }
+  // Create downloadable text file (browser-side, no server dependency)
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `全球肉鸡市场分析_${report.weekLabel}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success('报告已导出');
+}
 
 const PART_CONFIG = [
   { key: "part1_macroLandscape", label: "全球宏观与贸易格局", labelEn: "Global Macro & Trade Landscape", icon: Globe, color: "text-blue-600", bgColor: "bg-blue-50 dark:bg-blue-950/30" },
@@ -190,6 +218,12 @@ export default function WeeklyReportPage() {
             )}
             {generateMutation.isPending ? "AI 生成中..." : "生成本周报告"}
           </Button>
+          {activeReport && activeReport.status === 'completed' && (
+            <Button variant="outline" className="gap-2" onClick={() => exportReportPdf(activeReport)}>
+              <Download className="h-4 w-4" />
+              导出PDF
+            </Button>
+          )}
         </div>
       </div>
       

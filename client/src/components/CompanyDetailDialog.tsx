@@ -13,7 +13,8 @@ import { toast } from "sonner";
 import { useState, useRef } from "react";
 import {
   Globe, ExternalLink, Phone, Mail, User, Plus, Trash2, Linkedin, Star,
-  Building2, Calendar, TrendingUp, Shield, Upload, Send, FileSpreadsheet
+  Building2, Calendar, TrendingUp, Shield, Upload, Send, FileSpreadsheet,
+  Users, History
 } from "lucide-react";
 
 interface CompanyDetailDialogProps {
@@ -174,12 +175,14 @@ export default function CompanyDetailDialog({ company, open, onClose }: CompanyD
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="info">企业信息</TabsTrigger>
             <TabsTrigger value="contacts">
               联系人 {contacts?.length ? "(" + contacts.length + ")" : ""}
             </TabsTrigger>
             <TabsTrigger value="credit">信用评级</TabsTrigger>
+            <TabsTrigger value="similar">相似企业</TabsTrigger>
+            <TabsTrigger value="history">变更历史</TabsTrigger>
           </TabsList>
 
           {/* Company Info Tab */}
@@ -503,8 +506,114 @@ export default function CompanyDetailDialog({ company, open, onClose }: CompanyD
               </div>
             )}
           </TabsContent>
+          {/* Similar Companies Tab */}
+          <TabsContent value="similar">
+            <SimilarCompaniesTab companyId={company?.id} />
+          </TabsContent>
+
+          {/* Change History Tab */}
+          <TabsContent value="history">
+            <ChangeHistoryTab companyId={company?.id} />
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SimilarCompaniesTab({ companyId }: { companyId: number }) {
+  const { data: similar, isLoading } = trpc.company.similar.useQuery(
+    { companyId, limit: 8 },
+    { enabled: !!companyId }
+  );
+
+  if (isLoading) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-3">
+        <Users className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">同国家/同角色的相似企业</span>
+      </div>
+      {similar && similar.length > 0 ? (
+        <div className="grid grid-cols-1 gap-2">
+          {similar.map((c: any) => (
+            <Card key={c.id} className="hover:bg-muted/50 transition-colors">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{c.companyName}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs">{c.country}</Badge>
+                      {c.coreRole && <Badge variant="secondary" className="text-xs">{c.coreRole}</Badge>}
+                    </div>
+                  </div>
+                  {c.website && (
+                    <a href={c.website.startsWith('http') ? c.website : `https://${c.website}`} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                    </a>
+                  )}
+                </div>
+                {c.mainProducts && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{c.mainProducts}</p>}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <Users className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">暂未找到相似企业</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChangeHistoryTab({ companyId }: { companyId: number }) {
+  const { data: history, isLoading } = trpc.company.changeHistory.useQuery(
+    { companyId, limit: 30 },
+    { enabled: !!companyId }
+  );
+
+  if (isLoading) return <div className="py-8 text-center text-muted-foreground">Loading...</div>;
+
+  const FIELD_LABELS: Record<string, string> = {
+    companyName: '企业名称', country: '国家', continent: '大洲',
+    website: '网址', coreRole: '核心角色', mainProducts: '主营产品',
+    hasPurchasedFromChina: '中国采购', contactInfo: '联系方式',
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-3">
+        <History className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">企业数据修改记录</span>
+      </div>
+      {history && history.length > 0 ? (
+        <div className="space-y-2">
+          {history.map((h: any) => (
+            <div key={h.id} className="border rounded-lg p-3 text-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-medium">{FIELD_LABELS[h.fieldName] || h.fieldName}</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(h.createdAt).toLocaleString('zh-CN')}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-red-500 line-through">{h.oldValue || '空'}</span>
+                <span>→</span>
+                <span className="text-green-600">{h.newValue || '空'}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">操作人：{h.userName}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <History className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">暂无变更记录</p>
+        </div>
+      )}
+    </div>
   );
 }

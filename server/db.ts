@@ -1,11 +1,12 @@
-import { eq, and, like, or, sql, desc, asc, count } from "drizzle-orm";
+import { eq, ne, and, like, or, sql, desc, asc, count } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, companies, favorites, teams, teamMembers,
   teamSharedCompanies, inquiryTemplates, smtpConfigs, emailHistory, auditLogs,
   companyContacts, companyCreditRatings, customerLifecycle, abTestTemplates,
   teamRegionAccess, backupRecords, poultryTradeData,
-  aiRecommendExclusions, todoItems, emailBatchJobs, weeklyMarketReports
+  aiRecommendExclusions, todoItems, emailBatchJobs, weeklyMarketReports,
+  teamActivities, companyChangeHistory
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -669,4 +670,150 @@ export async function deleteWeeklyReport(id: number) {
   const db = await getDb();
   if (!db) return;
   await db.delete(weeklyMarketReports).where(eq(weeklyMarketReports.id, id));
+}
+
+
+// ==================== V2.5: TEAM ACTIVITIES ====================
+export async function addTeamActivity(data: {
+  teamId: number; userId: number; userName?: string;
+  actionType: string; targetType?: string; targetId?: number; targetName?: string; details?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(teamActivities).values(data as any);
+}
+
+export async function getTeamActivities(teamId: number, limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(teamActivities)
+    .where(eq(teamActivities.teamId, teamId))
+    .orderBy(desc(teamActivities.createdAt))
+    .limit(limit).offset(offset);
+}
+
+// ==================== V2.5: COMPANY CHANGE HISTORY ====================
+export async function addCompanyChangeHistory(data: {
+  companyId: number; userId: number; userName?: string;
+  fieldName: string; oldValue?: string; newValue?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(companyChangeHistory).values(data as any);
+}
+
+export async function getCompanyChangeHistory(companyId: number, limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(companyChangeHistory)
+    .where(eq(companyChangeHistory.companyId, companyId))
+    .orderBy(desc(companyChangeHistory.createdAt))
+    .limit(limit);
+}
+
+// ==================== V2.5: SIMILAR COMPANIES ====================
+export async function getSimilarCompanies(companyId: number, limit = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  // Get the target company first
+  const [target] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+  if (!target) return [];
+  // Find companies in same country with same role, excluding self
+  const results = await db.select().from(companies)
+    .where(
+      and(
+        ne(companies.id, companyId),
+        or(
+          eq(companies.country, target.country),
+          target.coreRole ? eq(companies.coreRole, target.coreRole) : undefined
+        )
+      )
+    )
+    .limit(limit);
+  return results;
+}
+
+// ==================== V2.5: ADVANCED SEARCH ====================
+export async function advancedSearchCompanies(input: {
+  query?: string; continent?: string; country?: string; role?: string; chinaOnly?: boolean;
+  minCreditScore?: number; maxCreditScore?: number; hasContacts?: boolean; hasLinkedin?: boolean;
+  page?: number; pageSize?: number;
+}) {
+  const db = await getDb();
+  if (!db) return { data: [], total: 0 };
+  const page = input.page || 1;
+  const pageSize = input.pageSize || 30;
+  const offset = (page - 1) * pageSize;
+
+  const conditions: any[] = [];
+  if (input.query) conditions.push(or(
+    like(companies.companyName, `%${input.query}%`),
+    like(companies.country, `%${input.query}%`),
+    like(companies.mainProducts, `%${input.query}%`)
+  ));
+  if (input.continent) conditions.push(eq(companies.continent, input.continent));
+  if (input.country) conditions.push(eq(companies.country, input.country));
+  if (input.role) conditions.push(eq(companies.coreRole, input.role));
+  if (input.chinaOnly) conditions.push(eq(companies.hasPurchasedFromChina, "是"));
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  let results = await db.select().from(companies).where(whereClause).limit(pageSize * 5).offset(0);
+
+  // Post-filter for credit score and contacts (requires joins)
+  if (input.minCreditScore !== undefined || input.maxCreditScore !== undefined) {
+    const creditRatings = await db.select().from(companyCreditRatings);
+    const creditMap = new Map(creditRatings.map(c => [c.companyId, c.creditScore || 0]));
+    results = results.filter(c => {
+      const score = creditMap.get(c.id) || 0;
+      if (input.minCreditScore !== undefined && score < input.minCreditScore) return false;
+      if (input.maxCreditScore !== undefined && score > input.maxCreditScore) return false;
+      return true;
+    });
+  }
+
+  if (input.hasContacts) {
+    const contactCounts = await db.select({ companyId: companyContacts.companyId }).from(companyContacts);
+    const contactSet = new Set(contactCounts.map(c => c.companyId));
+    results = results.filter(c => contactSet.has(c.id));
+  }
+
+  if (input.hasLinkedin) {
+    const linkedinContacts = await db.select({ companyId: companyContacts.companyId }).from(companyContacts)
+      .where(and(sql`${companyContacts.linkedin} IS NOT NULL`, sql`${companyContacts.linkedin} != ''`));
+    const linkedinSet = new Set(linkedinContacts.map(c => c.companyId));
+    results = results.filter(c => linkedinSet.has(c.id));
+  }
+
+  const total = results.length;
+  const paged = results.slice(offset, offset + pageSize);
+  return { data: paged, total };
+}
+
+// ==================== V2.5: FOLLOW-UP REMINDERS ====================
+export async function getUpcomingReminders(userId: number, days = 7) {
+  const db = await getDb();
+  if (!db) return [];
+  const now = new Date();
+  const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  return db.select({
+    favoriteId: favorites.id,
+    companyId: favorites.companyId,
+    followUpStatus: favorites.followUpStatus,
+    followUpDate: favorites.followUpDate,
+    notes: favorites.notes,
+    companyName: companies.companyName,
+    country: companies.country,
+    continent: companies.continent,
+  }).from(favorites)
+    .innerJoin(companies, eq(favorites.companyId, companies.id))
+    .where(
+      and(
+        eq(favorites.userId, userId),
+        sql`${favorites.followUpDate} IS NOT NULL`,
+        sql`${favorites.followUpDate} >= ${now}`,
+        sql`${favorites.followUpDate} <= ${futureDate}`
+      )
+    )
+    .orderBy(asc(favorites.followUpDate));
 }

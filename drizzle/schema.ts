@@ -290,3 +290,29 @@ export const weeklyMarketReports = mysqlTable("weekly_market_reports", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+// V2.5: 团队活动动态流
+export const teamActivities = mysqlTable("team_activities", {
+  id: int("id").autoincrement().primaryKey(),
+  teamId: int("teamId").notNull(),
+  userId: int("userId").notNull(),
+  userName: varchar("userName", { length: 200 }),
+  actionType: varchar("actionType", { length: 50 }).notNull(), // favorite_add, favorite_remove, status_update, email_sent, company_shared, contact_added
+  targetType: varchar("targetType", { length: 50 }), // company, contact, email
+  targetId: int("targetId"),
+  targetName: varchar("targetName", { length: 500 }),
+  details: text("details"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V2.5: 企业数据变更历史
+export const companyChangeHistory = mysqlTable("company_change_history", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  userId: int("userId").notNull(),
+  userName: varchar("userName", { length: 200 }),
+  fieldName: varchar("fieldName", { length: 100 }).notNull(),
+  oldValue: text("oldValue"),
+  newValue: text("newValue"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});

@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `company_change_history` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`userName` varchar(200),\n\t`fieldName` varchar(100) NOT NULL,\n\t`oldValue` text,\n\t`newValue` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `company_change_history_id` PRIMARY KEY(`id`)\n);\n\nCREATE TABLE `team_activities` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`teamId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`userName` varchar(200),\n\t`actionType` varchar(50) NOT NULL,\n\t`targetType` varchar(50),\n\t`targetId` int,\n\t`targetName` varchar(500),\n\t`details` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `team_activities_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2UEQVa5CAjdj7je.root --database ftiSfbsLTQqvqGTMZUS5kG --execute CREATE TABLE `company_change_history` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`userName` varchar(200),\n\t`fieldName` varchar(100) NOT NULL,\n\t`oldValue` text,\n\t`newValue` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `company_change_history_id` PRIMARY KEY(`id`)\n);\n\nCREATE TABLE `team_activities` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`teamId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`userName` varchar(200),\n\t`actionType` varchar(50) NOT NULL,\n\t`targetType` varchar(50),\n\t`targetId` int,\n\t`targetName` varchar(500),\n\t`details` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `team_activities_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2787
+}
