@@ -14,6 +14,7 @@ import {
   BookOpen, AlertTriangle, Loader2, Download
 } from "lucide-react";
 import { Streamdown } from "streamdown";
+import { industryConfig } from "@shared/industry-config";
 
 function exportReportPdf(report: any) {
   const parts = [
@@ -25,7 +26,7 @@ function exportReportPdf(report: any) {
     { title: '本周行动指南', content: report.part6_actionItems },
   ];
   const dateStr = new Date(report.reportDate).toLocaleDateString('zh-CN');
-  let text = `全球肉鸡行业外贸深度分析报告\n${report.weekLabel} | ${dateStr}\n${'='.repeat(60)}\n\n`;
+  let text = `${industryConfig.weeklyReportTitle}\n${report.weekLabel} | ${dateStr}\n${'='.repeat(60)}\n\n`;
   parts.forEach((p, i) => {
     text += `\n${'\u2550'.repeat(40)}\n第${i + 1}部分：${p.title}\n${'\u2550'.repeat(40)}\n\n${p.content || '暂无内容'}\n`;
   });
@@ -37,7 +38,7 @@ function exportReportPdf(report: any) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `全球肉鸡市场分析_${report.weekLabel}.txt`;
+  a.download = `${industryConfig.weeklyReportTitle}_${report.weekLabel}.txt`;
   a.click();
   URL.revokeObjectURL(url);
   toast.success('报告已导出');
@@ -202,7 +203,7 @@ export default function WeeklyReportPage() {
             每周全球市场分析
           </h1>
           <p className="text-muted-foreground mt-1">
-            Weekly Global Broiler Market Intelligence Report
+            {industryConfig.weeklyReportTitleEn}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -290,7 +291,7 @@ export default function WeeklyReportPage() {
                 <div>
                   <p className="font-medium">AI 正在生成每周市场分析报告...</p>
                   <p className="text-sm text-muted-foreground">
-                    正在分析全球禽肉贸易数据、价格走势、航运费率等信息，预计需要 30-60 秒
+                    {industryConfig.weeklyReportLoadingText}
                   </p>
                 </div>
               </CardContent>
@@ -306,7 +307,7 @@ export default function WeeklyReportPage() {
               <div>
                 <h2 className="text-lg font-bold flex items-center gap-2">
                   <Globe className="h-5 w-5 text-primary" />
-                  {activeReport.weekLabel} 全球肉鸡行业外贸深度分析
+                  {activeReport.weekLabel} {industryConfig.weeklyReportTitle}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
                   报告日期：{new Date(activeReport.reportDate).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })}
@@ -328,7 +329,7 @@ export default function WeeklyReportPage() {
             <FileText className="h-12 w-12 text-muted-foreground/30 mb-4" />
             <h3 className="text-lg font-medium mb-2">暂无市场分析报告</h3>
             <p className="text-sm text-muted-foreground mb-4 max-w-md">
-              点击"生成本周报告"按钮，AI 将基于全球禽肉贸易数据、价格走势、航运费率等信息，
+              点击“生成本周报告”按钮，AI 将基于全球{industryConfig.productLabel}贸易数据、价格走势、航运费率等信息，
               自动生成一份包含 6 大板块的专业市场分析报告
             </p>
             <Button onClick={() => generateMutation.mutate({})} disabled={generateMutation.isPending}>

@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { industryConfig } from "@shared/industry-config";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +56,7 @@ export default function Home() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">数据概览</h1>
-        <p className="text-muted-foreground mt-1">全球禽肉进口商企业数据库实时统计</p>
+        <p className="text-muted-foreground mt-1">{industryConfig.homeSubtitle}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -66,7 +67,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats?.total?.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">覆盖全球禽肉产业链</p>
+            <p className="text-xs text-muted-foreground mt-1">{industryConfig.homeTotalDesc}</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-chart-1">
@@ -96,7 +97,7 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats?.chinaImporters}</div>
-            <p className="text-xs text-muted-foreground mt-1">已在中国采购过禽肉</p>
+            <p className="text-xs text-muted-foreground mt-1">{industryConfig.homeChinaPurchaseDesc}</p>
           </CardContent>
         </Card>
       </div>

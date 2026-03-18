@@ -144,3 +144,19 @@
 - [x] 团队页面新增：活动动态流
 - [x] 搜索页新增：高级筛选面板（信用评级/联系人/LinkedIn等）
 - [x] 导出页新增：Excel(.xls)格式+格式选择UI
+
+## V2.6 升级 - 多行业配置化预留
+- [x] 创建 shared/industry-config/ 目录和 IndustryConfig 类型接口
+- [x] 创建禽业默认配置文件 poultry.ts
+- [x] 前端文案配置化（DashboardLayout/Home/TradePage/WeeklyReportPage/FeishuSettingsPage等~30处）
+- [x] 企业分类标签配置化（SearchPage/ExportPage的ROLE_TAGS）
+- [x] 市场洞察内容配置化（InsightsPage各大洲分析文案）
+- [x] 后端AI Prompt模板配置化（routers.ts/weeklyReportCron.ts的~6处）
+- [x] 贸易数据表泛化（HS Code已参数化到配置，表名保留兼容现有数据）
+- [x] 飞书通知文案配置化（feishuWebhook.ts）
+- [x] 项目元数据配置化（通过IndustryConfig统一管理）
+
+## V2.6 - 测试与质量
+- [x] V2.6 配置化Vitest测试（15项：接口完整性/字段类型/禽业默认值/区域洞察结构）
+- [x] 全部130项测试通过（10个测试文件）
+- [x] 前后端0个行业硬编码残留（grep验证）

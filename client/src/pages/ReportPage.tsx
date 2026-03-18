@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { industryConfig } from "@shared/industry-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,7 @@ export default function ReportPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">报告全文</h1>
-          <p className="text-muted-foreground mt-1">全球禽肉进口商数据报告完整版</p>
+          <p className="text-muted-foreground mt-1">{industryConfig.reportPageSubtitle}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="h-4 w-4 mr-1" />打印/导出PDF</Button>
       </div>

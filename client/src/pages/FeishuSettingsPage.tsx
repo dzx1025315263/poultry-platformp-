@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { useState } from "react";
+import { industryConfig } from "@shared/industry-config";
 import { getLoginUrl } from "@/const";
 import { Bell, CheckCircle, XCircle, Send, Settings, AlertTriangle, ListTodo, ExternalLink, Copy, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
@@ -170,7 +171,7 @@ export default function FeishuSettingsPage() {
               <div className="pb-6">
                 <p className="font-medium">打开飞书群聊</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  打开您希望接收通知的飞书群聊（建议创建一个专门的"禽业数据通知"群）
+                  打开您希望接收通知的飞书群聊（建议创建一个专门的“{industryConfig.feishuGroupName}”群）
                 </p>
               </div>
             </div>
@@ -196,7 +197,7 @@ export default function FeishuSettingsPage() {
               <div className="pb-6">
                 <p className="font-medium">添加自定义机器人</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  点击 <strong>「添加机器人」</strong> → 选择 <strong>「自定义机器人」</strong> → 输入机器人名称（如"禽业数据助手"）→ 点击 <strong>「添加」</strong>
+                  点击 <strong>「添加机器人」</strong> → 选择 <strong>「自定义机器人」</strong> → 输入机器人名称（如“{industryConfig.feishuBotName}”）→ 点击 <strong>「添加」</strong>
                 </p>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { industryConfig } from "@shared/industry-config";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -108,10 +109,10 @@ export default function DashboardLayout({
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
           <div className="flex flex-col items-center gap-6">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
-登录全球禽业数据平台
+{industryConfig.loginTitle}
             </h1>
             <p className="text-sm text-muted-foreground text-center max-w-sm">
-访问全球禽业数据协作平台需要登录。请点击下方按钮继续。
+{industryConfig.loginDesc}
             </p>
           </div>
           <Button
@@ -218,7 +219,7 @@ function DashboardLayoutContent({
               {!isCollapsed ? (
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="font-semibold tracking-tight truncate text-sm">
-                    全球禽业数据平台
+                    {industryConfig.platformShortName}
                   </span>
                 </div>
               ) : null}

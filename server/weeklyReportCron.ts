@@ -7,6 +7,7 @@
 
 import * as db from "../server/db";
 import { invokeLLM } from "./_core/llm";
+import { industryConfig } from "@shared/industry-config";
 
 function getCurrentWeekLabel(): string {
   const now = new Date();
@@ -40,25 +41,9 @@ export async function generateWeeklyReportAuto(): Promise<{ id: number; weekLabe
   const companyStats = await db.searchCompanies({ page: 1, pageSize: 1 });
   
   try {
-    const systemPrompt = `你是一位资深的全球禽肉行业外贸分析师，专注于肉鸡（白羽肉鸡）行业的国际贸易分析。
-你需要生成一份专业的每周全球肉鸡行业市场分析报告，格式参考以下结构：
+    const systemPrompt = industryConfig.aiAnalystSystemPrompt;
 
-报告必须包含6个部分，每部分用JSON格式返回，包含中英文双语内容：
-1. 全球宏观与贸易格局（供需基本面、HPAI疫情、贸易壁垒）
-2. 全球核心产区生产因素与价格核准（中国/巴西/美国/泰国/乌克兰价格监测）
-3. 国际航运费率与物流预警（航线费率、港口拥堵、附加费）
-4. 全球大客户开发指南与实战话术（按区域推荐目标客户和话术）
-5. 外贸风控模型与结算建议（按市场风险等级推荐结算方式）
-6. 本周行动指南（3-5条具体可执行建议）
-
-数据来源参考：World Bank, USDA FAS, Aviagen, JBzyw.com, ABPA, Krungsri Research, Wattagnet
-
-请用Markdown格式撰写每个部分，包含表格、数据和分析。价格用人民币元/斤 + 美元/kg双标注。`;
-
-    const userPrompt = `请生成${weekLabel}周的全球肉鸡行业外贸深度分析报告。
-
-平台已有贸易数据参考：\n${tradeContext}\n\n平台企业数据库共${companyStats.total}家企业。\n\n请严格按照JSON格式返回，包含以下6个字段：
-{"part1": "第一部分内容(Markdown)", "part2": "...", "part3": "...", "part4": "...", "part5": "...", "part6": "...", "references": "参考文献列表"}`;
+    const userPrompt = industryConfig.weeklyReportUserPromptTemplate.replace('{{weekLabel}}', weekLabel) + `\n\n平台已有贸易数据参考：\n${tradeContext}\n\n平台企业数据库共${companyStats.total}家企业。\n\n请严格按照JSON格式返回，包含以下6个字段：\n{"part1": "第一部分内容(Markdown)", "part2": "...", "part3": "...", "part4": "...", "part5": "...", "part6": "...", "references": "参考文献列表"}`;
 
     const response = await invokeLLM({
       messages: [

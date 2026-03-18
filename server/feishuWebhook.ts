@@ -4,6 +4,7 @@
  */
 
 import { ENV } from "./_core/env";
+import { industryConfig } from "@shared/industry-config";
 
 let FEISHU_WEBHOOK_URL = process.env.FEISHU_WEBHOOK_URL || ENV.feishuWebhookUrl || "";
 
@@ -70,7 +71,7 @@ export async function sendFeishuNotification(msg: FeishuMessage): Promise<boolea
             {
               tag: "note",
               elements: [
-                { tag: "plain_text", content: `全球禽业数据平台 · ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` },
+                { tag: "plain_text", content: `${industryConfig.feishuSignature} · ${new Date().toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}` },
               ],
             },
           ],

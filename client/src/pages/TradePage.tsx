@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { industryConfig } from "@shared/industry-config";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -71,9 +72,9 @@ export default function TradePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">全球禽肉贸易数据</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{industryConfig.tradePageTitle}</h1>
         <p className="text-muted-foreground mt-1">
-          基于 UN Comtrade 数据，HS Code 0207（禽肉及可食用杂碎）进口统计
+          {industryConfig.tradePageSubtitle}
         </p>
       </div>
 
@@ -153,7 +154,7 @@ export default function TradePage() {
       {topCountries.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Top 5 禽肉进口国</CardTitle>
+            <CardTitle className="text-lg">{`Top 5 ${industryConfig.industryName}进口国`}</CardTitle>
             <CardDescription>{selectedYear}年 按进口金额排名</CardDescription>
           </CardHeader>
           <CardContent>
@@ -203,7 +204,7 @@ export default function TradePage() {
         <CardHeader>
           <CardTitle className="text-lg">详细数据</CardTitle>
           <CardDescription>
-            {selectedYear}年各国禽肉进口数据 · 共 {filteredData.length} 条记录
+            {`${selectedYear}年各国${industryConfig.industryName}进口数据`} · 共 {filteredData.length} 条记录
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -268,7 +269,7 @@ export default function TradePage() {
 
       {/* Data Source Note */}
       <div className="text-xs text-muted-foreground text-center py-2">
-        数据来源：UN Comtrade Database · HS Code 0207（禽肉及可食用杂碎） · 数据仅供参考
+        {industryConfig.tradeDataSource}
       </div>
     </div>
   );
