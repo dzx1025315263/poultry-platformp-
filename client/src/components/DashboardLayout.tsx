@@ -30,6 +30,7 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
+import LoginPage from './LoginPage';
 
 type MenuItem = { icon: any; label: string; path: string; adminOnly?: boolean };
 type MenuGroup = { title: string; items: MenuItem[] };
@@ -104,29 +105,7 @@ export default function DashboardLayout({
   }
 
   if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-{industryConfig.loginTitle}
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-{industryConfig.loginDesc}
-            </p>
-          </div>
-          <Button
-            onClick={() => {
-              window.location.href = getLoginUrl();
-            }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-登录
-          </Button>
-        </div>
-      </div>
-    );
+    return <LoginPage />;
   }
 
   return (

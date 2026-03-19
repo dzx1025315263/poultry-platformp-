@@ -94,12 +94,27 @@ describe("V2.8 - 全平台登录限制", () => {
     );
     // 验证有useAuth调用
     expect(layoutContent).toContain("useAuth()");
-    // 验证有未登录时的登录引导
-    expect(layoutContent).toContain("getLoginUrl()");
     // 验证有loading状态处理
     expect(layoutContent).toContain("if (loading)");
     // 验证有未登录判断
     expect(layoutContent).toContain("if (!user)");
+    // 验证引用了LoginPage组件
+    expect(layoutContent).toContain("LoginPage");
+  });
+
+  it("LoginPage组件应包含登录引导和品牌展示", () => {
+    const loginPageContent = fs.readFileSync(
+      path.resolve(__dirname, "../client/src/components/LoginPage.tsx"),
+      "utf-8"
+    );
+    // 验证有登录URL
+    expect(loginPageContent).toContain("getLoginUrl()");
+    // 验证有公司Logo
+    expect(loginPageContent).toContain("Universal Gourmand Group");
+    // 验证有功能展示图片
+    expect(loginPageContent).toContain("SHOWCASE_IMAGES");
+    // 验证有功能介绍
+    expect(loginPageContent).toContain("FEATURES");
   });
 
   it("所有页面路由都在DashboardLayout内", () => {
