@@ -263,8 +263,8 @@ describe("lifecycle.funnelWithCredit", () => {
 
 // ==================== TRADE DATA ====================
 describe("trade router", () => {
-  it("returns poultry import data (public)", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+  it("returns poultry import data (requires login)", async () => {
+    const caller = appRouter.createCaller(createUserContext());
     const data = await caller.trade.poultryImports({ year: 2024 });
     expect(data).toHaveLength(2);
     expect(data[0].country).toBe("China");
@@ -272,20 +272,20 @@ describe("trade router", () => {
   });
 
   it("returns trade data without year filter", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const data = await caller.trade.poultryImports({});
     expect(data).toHaveLength(2);
   });
 
-  it("returns trade trends (public)", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+  it("returns trade trends (requires login)", async () => {
+    const caller = appRouter.createCaller(createUserContext());
     const trends = await caller.trade.trends({ country: "China" });
     expect(trends).toHaveLength(3);
     expect(trends[0].year).toBe(2022);
   });
 
   it("returns trends without country filter", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const trends = await caller.trade.trends({});
     expect(trends).toHaveLength(3);
   });

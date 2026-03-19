@@ -98,8 +98,8 @@ function createPublicContext(): TrpcContext {
 
 // ==================== CONTACT TESTS ====================
 describe("contact router", () => {
-  it("lists contacts for a company (public)", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+  it("lists contacts for a company (requires login)", async () => {
+    const caller = appRouter.createCaller(createUserContext());
     const contacts = await caller.contact.list({ companyId: 10 });
     expect(contacts).toHaveLength(2);
     expect(contacts[0].name).toBe("John Doe");
@@ -125,8 +125,8 @@ describe("contact router", () => {
 
 // ==================== CREDIT RATING TESTS ====================
 describe("credit router", () => {
-  it("gets credit rating for a company (public)", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+  it("gets credit rating for a company (requires login)", async () => {
+    const caller = appRouter.createCaller(createUserContext());
     const credit = await caller.credit.get({ companyId: 10 });
     expect(credit).toBeTruthy();
     expect(credit!.creditScore).toBe(85);

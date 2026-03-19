@@ -63,7 +63,7 @@ function createUserContext(): TrpcContext {
 
 describe("company.stats", () => {
   it("returns statistics with correct shape", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const stats = await caller.company.stats();
     expect(stats).toBeDefined();
     expect(typeof stats.total).toBe("number");
@@ -75,7 +75,7 @@ describe("company.stats", () => {
   });
 
   it("returns correct total company count (2314)", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const stats = await caller.company.stats();
     expect(stats.total).toBe(2314);
   });
@@ -83,7 +83,7 @@ describe("company.stats", () => {
 
 describe("company.search", () => {
   it("returns paginated results with default params", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const result = await caller.company.search({});
     expect(result).toBeDefined();
     expect(Array.isArray(result.data)).toBe(true);
@@ -92,7 +92,7 @@ describe("company.search", () => {
   });
 
   it("filters by continent", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const result = await caller.company.search({ continent: "中东" });
     expect(result.data.length).toBeGreaterThan(0);
     result.data.forEach((c: any) => {
@@ -101,14 +101,14 @@ describe("company.search", () => {
   });
 
   it("searches by query keyword", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const result = await caller.company.search({ query: "chicken" });
     expect(result).toBeDefined();
     expect(typeof result.total).toBe("number");
   });
 
   it("respects page and pageSize", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
+    const caller = appRouter.createCaller(createUserContext());
     const result = await caller.company.search({ page: 1, pageSize: 5 });
     expect(result.data.length).toBeLessThanOrEqual(5);
   });

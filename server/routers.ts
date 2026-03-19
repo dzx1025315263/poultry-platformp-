@@ -30,25 +30,25 @@ export const appRouter = router({
   }),
 
   company: router({
-    stats: publicProcedure.query(() => db.getCompanyStats()),
-    countryStats: publicProcedure.query(() => db.getCountryStats()),
-    search: publicProcedure.input(z.object({
+    stats: protectedProcedure.query(() => db.getCompanyStats()),
+    countryStats: protectedProcedure.query(() => db.getCountryStats()),
+    search: protectedProcedure.input(z.object({
       query: z.string().optional(), continent: z.string().optional(), country: z.string().optional(),
       role: z.string().optional(), chinaOnly: z.boolean().optional(), page: z.number().optional(), pageSize: z.number().optional(),
     })).query(({ input }) => db.searchCompanies(input)),
-    getById: publicProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getCompanyById(input.id)),
-    byContinent: publicProcedure.input(z.object({ continent: z.string() })).query(({ input }) => db.getCompaniesByContinent(input.continent)),
-    byCountry: publicProcedure.input(z.object({ country: z.string() })).query(({ input }) => db.getCompaniesByCountry(input.country)),
-    similar: publicProcedure.input(z.object({ companyId: z.number(), limit: z.number().optional() }))
+    getById: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getCompanyById(input.id)),
+    byContinent: protectedProcedure.input(z.object({ continent: z.string() })).query(({ input }) => db.getCompaniesByContinent(input.continent)),
+    byCountry: protectedProcedure.input(z.object({ country: z.string() })).query(({ input }) => db.getCompaniesByCountry(input.country)),
+    similar: protectedProcedure.input(z.object({ companyId: z.number(), limit: z.number().optional() }))
       .query(({ input }) => db.getSimilarCompanies(input.companyId, input.limit || 10)),
-    advancedSearch: publicProcedure.input(z.object({
+    advancedSearch: protectedProcedure.input(z.object({
       query: z.string().optional(), continent: z.string().optional(), country: z.string().optional(),
       role: z.string().optional(), chinaOnly: z.boolean().optional(),
       minCreditScore: z.number().optional(), maxCreditScore: z.number().optional(),
       hasContacts: z.boolean().optional(), hasLinkedin: z.boolean().optional(),
       page: z.number().optional(), pageSize: z.number().optional(),
     })).query(({ input }) => db.advancedSearchCompanies(input)),
-    changeHistory: publicProcedure.input(z.object({ companyId: z.number(), limit: z.number().optional() }))
+    changeHistory: protectedProcedure.input(z.object({ companyId: z.number(), limit: z.number().optional() }))
       .query(({ input }) => db.getCompanyChangeHistory(input.companyId, input.limit || 50)),
   }),
 
@@ -119,7 +119,7 @@ export const appRouter = router({
 
   // V2.0: 联系人管理
   contact: router({
-    list: publicProcedure.input(z.object({ companyId: z.number() })).query(({ input }) => db.getCompanyContacts(input.companyId)),
+    list: protectedProcedure.input(z.object({ companyId: z.number() })).query(({ input }) => db.getCompanyContacts(input.companyId)),
     add: protectedProcedure.input(z.object({
       companyId: z.number(), name: z.string().min(1), title: z.string().optional(),
       email: z.string().optional(), phone: z.string().optional(), linkedin: z.string().optional(), isPrimary: z.boolean().optional(),
@@ -181,7 +181,7 @@ export const appRouter = router({
 
   // V2.0: 信用评级
   credit: router({
-    get: publicProcedure.input(z.object({ companyId: z.number() })).query(({ input }) => db.getCompanyCreditRating(input.companyId)),
+    get: protectedProcedure.input(z.object({ companyId: z.number() })).query(({ input }) => db.getCompanyCreditRating(input.companyId)),
     upsert: protectedProcedure.input(z.object({
       companyId: z.number(), registeredCapital: z.string().optional(), foundedYear: z.number().optional(),
       importFrequency: z.string().optional(), cooperationHistory: z.string().optional(), creditScore: z.number().optional(),
@@ -235,10 +235,10 @@ export const appRouter = router({
 
   // V2.1: UN Comtrade 贸易数据
   trade: router({
-    poultryImports: publicProcedure.input(z.object({
+    poultryImports: protectedProcedure.input(z.object({
       year: z.number().optional(),
     }).optional()).query(({ input }) => db.getPoultryTradeData(input?.year)),
-    trends: publicProcedure.input(z.object({
+    trends: protectedProcedure.input(z.object({
       country: z.string().optional(),
     }).optional()).query(({ input }) => db.getPoultryTradeTrends(input?.country)),
   }),

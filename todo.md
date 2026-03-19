@@ -175,3 +175,9 @@
 - [x] V2.7 功能Vitest测试（40项新测试：变量定义/替换逻辑/检测/缺失变量/示例数据/分组）
 - [x] 全部170项测试通过（11个测试文件）
 - [x] TypeScript编译0错误
+
+## V2.8 升级 - 完全限制仅登录用户可见
+- [x] 后端：将所有publicProcedure改为protectedProcedure（company/contact/credit/trade等13处）
+- [x] 前端：DashboardLayout已内置全局登录拦截（未登录显示登录页面）
+- [x] 测试：9项新测试验证全平台登录限制 + 修复12项旧测试适配新权限
+- [x] 全部179项测试通过（12个测试文件）
