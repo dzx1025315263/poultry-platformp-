@@ -133,7 +133,7 @@ export default function TradePage() {
               <span>平均单价</span>
             </div>
             <div className="text-2xl font-bold mt-1">
-              {avgUnitPrice > 0 ? `$${avgUnitPrice.toFixed(0)}/吨` : "-"}
+              {avgUnitPrice > 0 ? `$${avgUnitPrice.toFixed(2)}/kg` : "-"}
             </div>
             <p className="text-xs text-muted-foreground">{selectedYear}年</p>
           </CardContent>
@@ -232,7 +232,7 @@ export default function TradePage() {
                     <TableHead>代码</TableHead>
                     <TableHead className="text-right">进口金额 (USD)</TableHead>
                     <TableHead className="text-right">进口量 (吨)</TableHead>
-                    <TableHead className="text-right">单价 (USD/吨)</TableHead>
+                    <TableHead className="text-right">单价 (USD/kg)</TableHead>
                     <TableHead className="text-right">同比变化</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -247,7 +247,7 @@ export default function TradePage() {
                         <TableCell className="text-right">{formatValue(item.importValueUsd)}</TableCell>
                         <TableCell className="text-right">{formatTons(item.importQuantityTons)}</TableCell>
                         <TableCell className="text-right">
-                          {parseFloat(item.unitPriceUsd || '0') > 0 ? `$${parseFloat(item.unitPriceUsd || '0').toFixed(0)}` : "-"}
+                          {parseFloat(item.unitPriceUsd || '0') > 0 ? `$${parseFloat(item.unitPriceUsd || '0').toFixed(2)}` : "-"}
                         </TableCell>
                         <TableCell className="text-right">
                           {!isNaN(yoy) ? (
