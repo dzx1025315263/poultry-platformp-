@@ -1,4 +1,4 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { ForbiddenError } from "@shared/_core/errors";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
@@ -7,13 +7,7 @@ import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
-import type {
-  ExchangeTokenRequest,
-  ExchangeTokenResponse,
-  GetUserInfoResponse,
-  GetUserInfoWithJwtRequest,
-  GetUserInfoWithJwtResponse,
-} from "./types/manusTypes";
+
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
@@ -24,132 +18,180 @@ export type SessionPayload = {
   name: string;
 };
 
-const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
-const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
-const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
+// ============================================================
+// Feishu (Lark) Official OAuth API Types
+// ============================================================
 
-class OAuthService {
-  constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
+export interface FeishuTokenResponse {
+  code: number;
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string;
+  refresh_token_expires_in?: number;
+  token_type: string;
+  scope: string;
+  error?: string;
+  error_description?: string;
+}
+
+export interface FeishuUserInfo {
+  code: number;
+  msg: string;
+  data: {
+    name: string;
+    en_name?: string;
+    avatar_url?: string;
+    avatar_thumb?: string;
+    avatar_middle?: string;
+    avatar_big?: string;
+    open_id: string;
+    union_id?: string;
+    email?: string;
+    enterprise_email?: string;
+    user_id?: string;
+    mobile?: string;
+    tenant_key?: string;
+    employee_no?: string;
+  };
+}
+
+// ============================================================
+// Feishu OAuth Service - Direct API calls to Feishu Open Platform
+// ============================================================
+
+class FeishuOAuthService {
+  private readonly httpClient: AxiosInstance;
+
+  constructor() {
+    this.httpClient = axios.create({
+      timeout: 30_000,
+    });
+    console.log("[Feishu OAuth] Initialized with App ID:", ENV.feishuAppId);
+    if (!ENV.feishuAppId || !ENV.feishuAppSecret) {
       console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
+        "[Feishu OAuth] ERROR: FEISHU_APP_ID or FEISHU_APP_SECRET is not configured!"
       );
     }
   }
 
-  private decodeState(state: string): string {
-    const redirectUri = atob(state);
-    return redirectUri;
-  }
-
-  async getTokenByCode(
+  /**
+   * Exchange authorization code for user_access_token
+   * API: POST https://open.feishu.cn/open-apis/authen/v2/oauth/token
+   */
+  async exchangeCodeForToken(
     code: string,
-    state: string
-  ): Promise<ExchangeTokenResponse> {
-    const payload: ExchangeTokenRequest = {
-      clientId: ENV.appId,
-      grantType: "authorization_code",
+    redirectUri: string
+  ): Promise<FeishuTokenResponse> {
+    const payload = {
+      grant_type: "authorization_code",
+      client_id: ENV.feishuAppId,
+      client_secret: ENV.feishuAppSecret,
       code,
-      redirectUri: this.decodeState(state),
+      redirect_uri: redirectUri,
     };
 
-    const { data } = await this.client.post<ExchangeTokenResponse>(
-      EXCHANGE_TOKEN_PATH,
-      payload
-    );
+    console.log("[Feishu OAuth] Exchanging code for token...");
 
-    return data;
-  }
-
-  async getUserInfoByToken(
-    token: ExchangeTokenResponse
-  ): Promise<GetUserInfoResponse> {
-    const { data } = await this.client.post<GetUserInfoResponse>(
-      GET_USER_INFO_PATH,
+    const { data } = await this.httpClient.post<FeishuTokenResponse>(
+      "https://open.feishu.cn/open-apis/authen/v2/oauth/token",
+      payload,
       {
-        accessToken: token.accessToken,
+        headers: { "Content-Type": "application/json" },
       }
     );
 
+    if (data.code !== 0 && data.code !== undefined && data.error) {
+      console.error("[Feishu OAuth] Token exchange failed:", data);
+      throw new Error(
+        `Feishu token exchange failed: ${data.error} - ${data.error_description}`
+      );
+    }
+
+    console.log("[Feishu OAuth] Token exchange successful");
+    return data;
+  }
+
+  /**
+   * Get user info using user_access_token
+   * API: GET https://open.feishu.cn/open-apis/authen/v1/user_info
+   */
+  async getUserInfo(userAccessToken: string): Promise<FeishuUserInfo> {
+    console.log("[Feishu OAuth] Fetching user info...");
+
+    const { data } = await this.httpClient.get<FeishuUserInfo>(
+      "https://open.feishu.cn/open-apis/authen/v1/user_info",
+      {
+        headers: {
+          Authorization: `Bearer ${userAccessToken}`,
+          "Content-Type": "application/json; charset=utf-8",
+        },
+      }
+    );
+
+    if (data.code !== 0) {
+      console.error("[Feishu OAuth] Get user info failed:", data);
+      throw new Error(
+        `Feishu get user info failed: code=${data.code}, msg=${data.msg}`
+      );
+    }
+
+    console.log(
+      "[Feishu OAuth] User info fetched:",
+      data.data.name,
+      data.data.open_id
+    );
     return data;
   }
 }
 
-const createOAuthHttpClient = (): AxiosInstance =>
-  axios.create({
-    baseURL: ENV.oAuthServerUrl,
-    timeout: AXIOS_TIMEOUT_MS,
-  });
+// ============================================================
+// SDK Server - Session management (JWT-based, independent)
+// ============================================================
 
 class SDKServer {
-  private readonly client: AxiosInstance;
-  private readonly oauthService: OAuthService;
+  private readonly feishuOAuth: FeishuOAuthService;
 
-  constructor(client: AxiosInstance = createOAuthHttpClient()) {
-    this.client = client;
-    this.oauthService = new OAuthService(this.client);
-  }
-
-  private deriveLoginMethod(
-    platforms: unknown,
-    fallback: string | null | undefined
-  ): string | null {
-    if (fallback && fallback.length > 0) return fallback;
-    if (!Array.isArray(platforms) || platforms.length === 0) return null;
-    const set = new Set<string>(
-      platforms.filter((p): p is string => typeof p === "string")
-    );
-    if (set.has("REGISTERED_PLATFORM_EMAIL")) return "email";
-    if (set.has("REGISTERED_PLATFORM_GOOGLE")) return "google";
-    if (set.has("REGISTERED_PLATFORM_APPLE")) return "apple";
-    if (
-      set.has("REGISTERED_PLATFORM_MICROSOFT") ||
-      set.has("REGISTERED_PLATFORM_AZURE")
-    )
-      return "microsoft";
-    if (set.has("REGISTERED_PLATFORM_GITHUB")) return "github";
-    const first = Array.from(set)[0];
-    return first ? first.toLowerCase() : null;
+  constructor() {
+    this.feishuOAuth = new FeishuOAuthService();
   }
 
   /**
-   * Exchange OAuth authorization code for access token
-   * @example
-   * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
+   * Get the Feishu OAuth authorization URL
+   */
+  getFeishuAuthUrl(redirectUri: string, state?: string): string {
+    const url = new URL(
+      "https://accounts.feishu.cn/open-apis/authen/v1/authorize"
+    );
+    url.searchParams.set("client_id", ENV.feishuAppId);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("redirect_uri", redirectUri);
+    if (state) {
+      url.searchParams.set("state", state);
+    }
+    return url.toString();
+  }
+
+  /**
+   * Exchange Feishu authorization code for user_access_token
    */
   async exchangeCodeForToken(
     code: string,
-    state: string
-  ): Promise<ExchangeTokenResponse> {
-    return this.oauthService.getTokenByCode(code, state);
+    redirectUri: string
+  ): Promise<FeishuTokenResponse> {
+    return this.feishuOAuth.exchangeCodeForToken(code, redirectUri);
   }
 
   /**
-   * Get user information using access token
-   * @example
-   * const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
+   * Get user info from Feishu using user_access_token
    */
-  async getUserInfo(accessToken: string): Promise<GetUserInfoResponse> {
-    const data = await this.oauthService.getUserInfoByToken({
-      accessToken,
-    } as ExchangeTokenResponse);
-    const loginMethod = this.deriveLoginMethod(
-      (data as any)?.platforms,
-      (data as any)?.platform ?? data.platform ?? null
-    );
-    return {
-      ...(data as any),
-      platform: loginMethod,
-      loginMethod,
-    } as GetUserInfoResponse;
+  async getUserInfo(userAccessToken: string): Promise<FeishuUserInfo> {
+    return this.feishuOAuth.getUserInfo(userAccessToken);
   }
 
   private parseCookies(cookieHeader: string | undefined) {
     if (!cookieHeader) {
       return new Map<string, string>();
     }
-
     const parsed = parseCookieHeader(cookieHeader);
     return new Map(Object.entries(parsed));
   }
@@ -160,9 +202,7 @@ class SDKServer {
   }
 
   /**
-   * Create a session token for a Manus user openId
-   * @example
-   * const sessionToken = await sdk.createSessionToken(userInfo.openId);
+   * Create a session token (JWT) for a user
    */
   async createSessionToken(
     openId: string,
@@ -171,7 +211,7 @@ class SDKServer {
     return this.signSession(
       {
         openId,
-        appId: ENV.appId,
+        appId: ENV.feishuAppId,
         name: options.name || "",
       },
       options
@@ -232,32 +272,8 @@ class SDKServer {
     }
   }
 
-  async getUserInfoWithJwt(
-    jwtToken: string
-  ): Promise<GetUserInfoWithJwtResponse> {
-    const payload: GetUserInfoWithJwtRequest = {
-      jwtToken,
-      projectId: ENV.appId,
-    };
-
-    const { data } = await this.client.post<GetUserInfoWithJwtResponse>(
-      GET_USER_INFO_WITH_JWT_PATH,
-      payload
-    );
-
-    const loginMethod = this.deriveLoginMethod(
-      (data as any)?.platforms,
-      (data as any)?.platform ?? data.platform ?? null
-    );
-    return {
-      ...(data as any),
-      platform: loginMethod,
-      loginMethod,
-    } as GetUserInfoWithJwtResponse;
-  }
-
   async authenticateRequest(req: Request): Promise<User> {
-    // Regular authentication flow
+    // Regular authentication flow using JWT session cookie
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
     const session = await this.verifySession(sessionCookie);
@@ -270,22 +286,19 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
     if (!user) {
-      try {
-        const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");
-        await db.upsertUser({
-          openId: userInfo.openId,
-          name: userInfo.name || null,
-          email: userInfo.email ?? null,
-          loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
-          lastSignedIn: signedInAt,
-        });
-        user = await db.getUserByOpenId(userInfo.openId);
-      } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
-        throw ForbiddenError("Failed to sync user info");
-      }
+      // User has a valid JWT but not in DB - create a minimal record
+      console.warn(
+        "[Auth] User has valid session but not in DB, creating record for:",
+        sessionUserId
+      );
+      await db.upsertUser({
+        openId: sessionUserId,
+        name: session.name || null,
+        loginMethod: "feishu",
+        lastSignedIn: signedInAt,
+      });
+      user = await db.getUserByOpenId(sessionUserId);
     }
 
     if (!user) {

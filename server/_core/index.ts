@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerWeeklyReportCron } from "../weeklyReportCron";
+import { sdk } from "./sdk";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -34,8 +35,17 @@ async function startServer() {
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
-  // OAuth callback under /api/oauth/callback
+  // OAuth callback under /api/oauth/callback + Feishu login URL endpoint
   registerOAuthRoutes(app);
+
+  // Server-side redirect to Feishu login (fallback when VITE_FEISHU_APP_ID is not set)
+  app.get("/api/auth/feishu-login-url-redirect", (req, res) => {
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const redirectUri = `${protocol}://${host}/api/oauth/callback`;
+    const loginUrl = sdk.getFeishuAuthUrl(redirectUri, "/");
+    res.redirect(302, loginUrl);
+  });
   // 注册每周报告自动生成服务
   registerWeeklyReportCron(app);
   // tRPC API
