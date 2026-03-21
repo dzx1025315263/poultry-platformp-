@@ -28,6 +28,7 @@ const AiRecommendPage = lazy(() => import("./pages/AiRecommendPage"));
 const EmailAutomationPage = lazy(() => import("./pages/EmailAutomationPage"));
 const TodoPage = lazy(() => import("./pages/TodoPage"));
 const WeeklyReportPage = lazy(() => import("./pages/WeeklyReportPage"));
+const LoginPage = lazy(() => import("./components/LoginPage"));
 
 function PageLoader() {
   return (
@@ -63,6 +64,7 @@ function Router() {
           <Route path="/email-automation" component={EmailAutomationPage} />
           <Route path="/todo" component={TodoPage} />
           <Route path="/weekly-report" component={WeeklyReportPage} />
+          <Route path="/login" component={LoginPage} />
           <Route path="/404" component={NotFound} />
           <Route component={NotFound} />
         </Switch>
