@@ -165,8 +165,18 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
   // 最新价格（每个产品取最新一条）
   const latestPrices = useMemo(() => {
     return Object.entries(priceByProduct).map(([label, items]) => {
-      const sorted = [...items].sort((a: any, b: any) => b.date.localeCompare(a.date));
-      return { label, ...sorted[0] };
+      const sorted = [...items].sort((a: any, b: any) => String(b.date || '').localeCompare(String(a.date || '')));
+      const latest = sorted[0];
+      return {
+        label,
+        price: latest.price,
+        unit: latest.unit,
+        priceUsd: latest.priceUsd,
+        trend: latest.trend,
+        changePercent: latest.changePercent,
+        date: String(latest.date || ''),
+        source: latest.source,
+      };
     });
   }, [priceByProduct]);
 
@@ -175,10 +185,11 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
     if (!prices || prices.length === 0) return [];
     const dateMap: Record<string, any> = {};
     prices.forEach((p: any) => {
-      if (!dateMap[p.date]) dateMap[p.date] = { date: p.date };
-      dateMap[p.date][p.productLabel || p.productType] = parseFloat(p.priceUsd || p.price);
+      const dateStr = String(p.date || '');
+      if (!dateMap[dateStr]) dateMap[dateStr] = { date: dateStr };
+      dateMap[dateStr][p.productLabel || p.productType] = parseFloat(p.priceUsd || p.price);
     });
-    return Object.values(dateMap).sort((a: any, b: any) => a.date.localeCompare(b.date));
+    return Object.values(dateMap).sort((a: any, b: any) => String(a.date || '').localeCompare(String(b.date || '')));
   }, [prices]);
 
   const productTypes = useMemo(() => Object.keys(priceByProduct), [priceByProduct]);
@@ -331,7 +342,7 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
                   <TableBody>
                     {(prices || []).map((p: any) => (
                       <TableRow key={p.id}>
-                        <TableCell className="text-xs">{p.date}</TableCell>
+                        <TableCell className="text-xs">{String(p.date || '')}</TableCell>
                         <TableCell className="text-xs font-medium">{p.productLabel || p.productType}</TableCell>
                         <TableCell className="text-right text-xs font-mono">{parseFloat(p.price).toFixed(2)}</TableCell>
                         <TableCell className="text-xs">{p.unit}</TableCell>
@@ -382,7 +393,7 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
                         <span className="font-bold">{a.diseaseType}</span>
                         <ImpactBadge level={a.impactLevel} />
                       </div>
-                      <span className="text-xs text-muted-foreground">{a.date}</span>
+                      <span className="text-xs text-muted-foreground">{String(a.date || '')}</span>
                     </div>
                     {a.location && (
                       <div className="flex items-center gap-1 mb-2 text-sm text-muted-foreground">
@@ -442,7 +453,7 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <ImportanceBadge level={n.importance} />
                         <CategoryBadge cat={n.category} />
-                        <span className="text-xs text-muted-foreground">{n.date}</span>
+                        <span className="text-xs text-muted-foreground">{String(n.date || '')}</span>
                       </div>
                     </div>
                     <h4 className="font-bold text-sm mb-2">{n.title}</h4>
@@ -613,7 +624,7 @@ function GlobalAlertsPanel() {
                   <span className="font-bold">{a.diseaseType}</span>
                   <ImpactBadge level={a.impactLevel} />
                 </div>
-                <span className="text-xs text-muted-foreground">{a.date}</span>
+                <span className="text-xs text-muted-foreground">{String(a.date || '')}</span>
               </div>
               {a.location && (
                 <p className="text-sm text-muted-foreground mb-1"><MapPin className="h-3 w-3 inline mr-1" />{a.location}</p>
