@@ -531,6 +531,30 @@ export async function insertPoultryTradeData(data: {
   }
 }
 
+// ==================== TRADE DATA ANNUAL SUMMARY (V3.0) ====================
+export async function getTradeAnnualSummary() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    year: poultryTradeData.year,
+    totalValue: sql<string>`SUM(CAST(${poultryTradeData.importValueUsd} AS DECIMAL(20,2)))`,
+    totalQuantity: sql<string>`SUM(CAST(${poultryTradeData.importQuantityTons} AS DECIMAL(20,2)))`,
+    avgUnitPrice: sql<string>`AVG(CAST(${poultryTradeData.unitPriceUsd} AS DECIMAL(10,4)))`,
+    countryCount: sql<number>`COUNT(DISTINCT ${poultryTradeData.country})`,
+  }).from(poultryTradeData)
+    .groupBy(poultryTradeData.year)
+    .orderBy(asc(poultryTradeData.year));
+}
+
+export async function getTradeTopCountriesByYear(year: number, limit: number = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(poultryTradeData)
+    .where(eq(poultryTradeData.year, year))
+    .orderBy(desc(sql`CAST(${poultryTradeData.importValueUsd} AS DECIMAL(20,2))`))
+    .limit(limit);
+}
+
 // ==================== AI RECOMMEND EXCLUSIONS (V2.3) ====================
 export async function getAiExclusions(userId: number) {
   const db = await getDb();

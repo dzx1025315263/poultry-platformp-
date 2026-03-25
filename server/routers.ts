@@ -241,6 +241,10 @@ export const appRouter = router({
     trends: protectedProcedure.input(z.object({
       country: z.string().optional(),
     }).optional()).query(({ input }) => db.getPoultryTradeTrends(input?.country)),
+    annualSummary: protectedProcedure.query(() => db.getTradeAnnualSummary()),
+    topCountries: protectedProcedure.input(z.object({
+      year: z.number(), limit: z.number().optional(),
+    })).query(({ input }) => db.getTradeTopCountriesByYear(input.year, input.limit || 10)),
   }),
 
   // V2.0: 数据备份
