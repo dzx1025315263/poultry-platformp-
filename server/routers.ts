@@ -813,6 +813,21 @@ export const appRouter = router({
       .query(({ input }) => db.getRegionIndustryNewsByCode(input.regionCode, input.category, input.limit)),
     globalAlerts: protectedProcedure.input(z.object({ limit: z.number().optional() }).optional())
       .query(({ input }) => db.getGlobalDiseaseAlerts(input?.limit)),
+    // V3.1: 分区域报价
+    subAreaPrices: protectedProcedure.input(z.object({ regionCode: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.getRegionSubAreaPrices(input.regionCode, input.limit)),
+    // V3.1: 饲料原料价格
+    feedPrices: protectedProcedure.input(z.object({ regionCode: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.getRegionFeedPrices(input.regionCode, input.limit)),
+    // V3.1: 疫病知识库
+    diseaseLibrary: protectedProcedure.input(z.object({ regionCode: z.string().optional() }))
+      .query(({ input }) => db.getRegionDiseaseLibrary(input.regionCode)),
+    // V3.1: 政策法规
+    policies: protectedProcedure.input(z.object({ regionCode: z.string(), policyType: z.string().optional(), limit: z.number().optional() }))
+      .query(({ input }) => db.getRegionPolicies(input.regionCode, input.policyType, input.limit)),
+    // V3.1: 龙头企业档案
+    companyProfiles: protectedProcedure.input(z.object({ regionCode: z.string() }))
+      .query(({ input }) => db.getRegionCompanyProfiles(input.regionCode)),
   }),
 });
 

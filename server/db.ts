@@ -1,4 +1,4 @@
-import { eq, ne, and, like, or, sql, desc, asc, count } from "drizzle-orm";
+import { eq, ne, and, like, or, sql, desc, asc, count, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, companies, favorites, teams, teamMembers,
@@ -7,7 +7,8 @@ import {
   teamRegionAccess, backupRecords, poultryTradeData,
   aiRecommendExclusions, todoItems, emailBatchJobs, weeklyMarketReports,
   teamActivities, companyChangeHistory,
-  productionRegions, regionMarketPrices, regionDiseaseAlerts, regionIndustryNews
+  productionRegions, regionMarketPrices, regionDiseaseAlerts, regionIndustryNews,
+  regionSubAreaPrices, regionFeedPrices, regionDiseaseLibrary, regionPolicies, regionCompanyProfiles
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -981,4 +982,133 @@ export async function getGlobalDiseaseAlerts(limit = 30) {
   }).from(regionDiseaseAlerts)
     .orderBy(desc(regionDiseaseAlerts.date))
     .limit(limit);
+}
+
+// ==================== V3.1: 分区域报价 ====================
+export async function getRegionSubAreaPrices(regionCode: string, limit = 200) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: regionSubAreaPrices.id,
+    regionCode: regionSubAreaPrices.regionCode,
+    subArea: regionSubAreaPrices.subArea,
+    subAreaLocal: regionSubAreaPrices.subAreaLocal,
+    date: regionSubAreaPrices.date,
+    productType: regionSubAreaPrices.productType,
+    productLabel: regionSubAreaPrices.productLabel,
+    price: regionSubAreaPrices.price,
+    unit: regionSubAreaPrices.unit,
+    priceUsd: regionSubAreaPrices.priceUsd,
+    trend: regionSubAreaPrices.trend,
+    changePercent: regionSubAreaPrices.changePercent,
+    source: regionSubAreaPrices.source,
+  }).from(regionSubAreaPrices)
+    .where(eq(regionSubAreaPrices.regionCode, regionCode))
+    .orderBy(desc(regionSubAreaPrices.date))
+    .limit(limit);
+}
+
+// ==================== V3.1: 饲料原料价格 ====================
+export async function getRegionFeedPrices(regionCode: string, limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: regionFeedPrices.id,
+    regionCode: regionFeedPrices.regionCode,
+    date: regionFeedPrices.date,
+    feedType: regionFeedPrices.feedType,
+    feedLabel: regionFeedPrices.feedLabel,
+    price: regionFeedPrices.price,
+    unit: regionFeedPrices.unit,
+    priceUsd: regionFeedPrices.priceUsd,
+    trend: regionFeedPrices.trend,
+    changePercent: regionFeedPrices.changePercent,
+    source: regionFeedPrices.source,
+  }).from(regionFeedPrices)
+    .where(eq(regionFeedPrices.regionCode, regionCode))
+    .orderBy(desc(regionFeedPrices.date))
+    .limit(limit);
+}
+
+// ==================== V3.1: 疫病知识库 ====================
+export async function getRegionDiseaseLibrary(regionCode?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (regionCode) {
+    conditions.push(
+      or(eq(regionDiseaseLibrary.regionCode, regionCode), isNull(regionDiseaseLibrary.regionCode))
+    );
+  }
+  return db.select({
+    id: regionDiseaseLibrary.id,
+    regionCode: regionDiseaseLibrary.regionCode,
+    diseaseCategory: regionDiseaseLibrary.diseaseCategory,
+    diseaseName: regionDiseaseLibrary.diseaseName,
+    diseaseNameEn: regionDiseaseLibrary.diseaseNameEn,
+    pathogen: regionDiseaseLibrary.pathogen,
+    symptoms: regionDiseaseLibrary.symptoms,
+    pathologicalChanges: regionDiseaseLibrary.pathologicalChanges,
+    diagnosis: regionDiseaseLibrary.diagnosis,
+    prevention: regionDiseaseLibrary.prevention,
+    treatment: regionDiseaseLibrary.treatment,
+    vaccineInfo: regionDiseaseLibrary.vaccineInfo,
+    seasonalRisk: regionDiseaseLibrary.seasonalRisk,
+    prevalenceLevel: regionDiseaseLibrary.prevalenceLevel,
+    economicImpact: regionDiseaseLibrary.economicImpact,
+    source: regionDiseaseLibrary.source,
+  }).from(regionDiseaseLibrary)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(regionDiseaseLibrary.diseaseCategory), asc(regionDiseaseLibrary.diseaseName));
+}
+
+// ==================== V3.1: 产区政策法规 ====================
+export async function getRegionPolicies(regionCode: string, policyType?: string, limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(regionPolicies.regionCode, regionCode)];
+  if (policyType && policyType !== 'all') {
+    conditions.push(eq(regionPolicies.policyType, policyType));
+  }
+  return db.select({
+    id: regionPolicies.id,
+    regionCode: regionPolicies.regionCode,
+    date: regionPolicies.date,
+    policyType: regionPolicies.policyType,
+    policyLabel: regionPolicies.policyLabel,
+    title: regionPolicies.title,
+    summary: regionPolicies.summary,
+    content: regionPolicies.content,
+    impactOnTrade: regionPolicies.impactOnTrade,
+    effectiveDate: regionPolicies.effectiveDate,
+    status: regionPolicies.status,
+    source: regionPolicies.source,
+    sourceUrl: regionPolicies.sourceUrl,
+  }).from(regionPolicies)
+    .where(and(...conditions))
+    .orderBy(desc(regionPolicies.date))
+    .limit(limit);
+}
+
+// ==================== V3.1: 龙头企业档案 ====================
+export async function getRegionCompanyProfiles(regionCode: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: regionCompanyProfiles.id,
+    regionCode: regionCompanyProfiles.regionCode,
+    companyName: regionCompanyProfiles.companyName,
+    companyNameLocal: regionCompanyProfiles.companyNameLocal,
+    companyType: regionCompanyProfiles.companyType,
+    annualCapacityMt: regionCompanyProfiles.annualCapacityMt,
+    annualRevenue: regionCompanyProfiles.annualRevenue,
+    employeeCount: regionCompanyProfiles.employeeCount,
+    exportMarkets: regionCompanyProfiles.exportMarkets,
+    certifications: regionCompanyProfiles.certifications,
+    recentNews: regionCompanyProfiles.recentNews,
+    website: regionCompanyProfiles.website,
+    description: regionCompanyProfiles.description,
+  }).from(regionCompanyProfiles)
+    .where(eq(regionCompanyProfiles.regionCode, regionCode))
+    .orderBy(asc(regionCompanyProfiles.companyName));
 }

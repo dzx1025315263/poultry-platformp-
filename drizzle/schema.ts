@@ -387,3 +387,96 @@ export const regionIndustryNews = mysqlTable("region_industry_news", {
   tags: text("tags"),                                             // JSON标签数组
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+// V3.1: 分区域/分州报价表（对标鸡病专业网的分地区报价）
+export const regionSubAreaPrices = mysqlTable("region_sub_area_prices", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }).notNull(),     // 'CN','US','BR' etc
+  subArea: varchar("subArea", { length: 200 }).notNull(),           // 州/省名 e.g. 'Georgia','Shandong'
+  subAreaLocal: varchar("subAreaLocal", { length: 200 }),           // 本地语言名
+  date: varchar("date", { length: 20 }).notNull(),
+  productType: varchar("productType", { length: 50 }).notNull(),   // 'broiler','layer','chick','frozen_whole'
+  productLabel: varchar("productLabel", { length: 100 }),
+  price: text("price").notNull(),
+  unit: varchar("unit", { length: 30 }).notNull(),
+  priceUsd: text("priceUsd"),
+  trend: varchar("trend", { length: 10 }),
+  changePercent: text("changePercent"),
+  source: varchar("source", { length: 200 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V3.1: 饲料原料价格表（上下游联动分析）
+export const regionFeedPrices = mysqlTable("region_feed_prices", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }).notNull(),
+  date: varchar("date", { length: 20 }).notNull(),
+  feedType: varchar("feedType", { length: 50 }).notNull(),         // 'corn','soybean_meal','wheat','fish_meal','premix'
+  feedLabel: varchar("feedLabel", { length: 100 }),
+  price: text("price").notNull(),
+  unit: varchar("unit", { length: 30 }).notNull(),
+  priceUsd: text("priceUsd"),
+  trend: varchar("trend", { length: 10 }),
+  changePercent: text("changePercent"),
+  source: varchar("source", { length: 200 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V3.1: 疫病防控知识库（疾病图谱，对标鸡病专业网的鸡病防控频道）
+export const regionDiseaseLibrary = mysqlTable("region_disease_library", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }),               // null = 全球通用
+  diseaseCategory: varchar("diseaseCategory", { length: 50 }).notNull(), // 'respiratory','digestive','parasitic','viral','bacterial','immune'
+  diseaseName: varchar("diseaseName", { length: 200 }).notNull(),
+  diseaseNameEn: varchar("diseaseNameEn", { length: 200 }),
+  pathogen: varchar("pathogen", { length: 200 }),                  // 病原体
+  symptoms: text("symptoms"),                                       // 症状描述
+  pathologicalChanges: text("pathologicalChanges"),                 // 病理变化
+  diagnosis: text("diagnosis"),                                     // 诊断方法
+  prevention: text("prevention"),                                   // 预防措施
+  treatment: text("treatment"),                                     // 治疗方案
+  vaccineInfo: text("vaccineInfo"),                                 // 疫苗信息
+  seasonalRisk: varchar("seasonalRisk", { length: 100 }),          // 'spring','summer','autumn','winter','year_round'
+  prevalenceLevel: mysqlEnum("prevalenceLevel", ["endemic", "sporadic", "rare", "emerging"]).default("sporadic"),
+  economicImpact: text("economicImpact"),                          // 经济影响
+  source: varchar("source", { length: 200 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// V3.1: 产区政策法规表
+export const regionPolicies = mysqlTable("region_policies", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }).notNull(),
+  date: varchar("date", { length: 20 }).notNull(),
+  policyType: varchar("policyType", { length: 50 }).notNull(),    // 'trade','welfare','food_safety','veterinary','environmental','subsidy'
+  policyLabel: varchar("policyLabel", { length: 100 }),
+  title: varchar("title", { length: 500 }).notNull(),
+  summary: text("summary"),
+  content: text("content"),
+  impactOnTrade: text("impactOnTrade"),                            // 对贸易的影响
+  effectiveDate: varchar("effectiveDate", { length: 20 }),
+  status: mysqlEnum("status", ["active", "pending", "expired"]).default("active"),
+  source: varchar("source", { length: 200 }),
+  sourceUrl: text("sourceUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V3.1: 龙头企业动态追踪表
+export const regionCompanyProfiles = mysqlTable("region_company_profiles", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }).notNull(),
+  companyName: varchar("companyName", { length: 300 }).notNull(),
+  companyNameLocal: varchar("companyNameLocal", { length: 300 }),
+  companyType: varchar("companyType", { length: 50 }),             // 'integrator','processor','breeder','exporter'
+  annualCapacityMt: text("annualCapacityMt"),                      // 年产能(万吨)
+  annualRevenue: text("annualRevenue"),                            // 年营收
+  employeeCount: text("employeeCount"),
+  exportMarkets: text("exportMarkets"),                            // 出口市场(JSON)
+  certifications: text("certifications"),                          // 认证(JSON: halal, brc, ifs, etc.)
+  recentNews: text("recentNews"),                                  // 最新动态(JSON)
+  website: text("website"),
+  description: text("description"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
