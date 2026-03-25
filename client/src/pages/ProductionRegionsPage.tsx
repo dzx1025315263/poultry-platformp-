@@ -138,19 +138,7 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
     return news.filter((n: any) => n.category === newsCategory);
   }, [news, newsCategory]);
 
-  if (!region) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
-
-  const flag = REGION_FLAGS[regionCode] || "🌍";
-  const color = REGION_COLORS[regionCode] || "#6b7280";
-
-  let producingAreas: { name: string; description: string }[] = [];
-  let topCompanies: { name: string; description: string }[] = [];
-  let dataSources: { name: string; url?: string }[] = [];
-  try { producingAreas = JSON.parse(region.mainProducingAreas || "[]"); } catch { }
-  try { topCompanies = JSON.parse(region.topCompanies || "[]"); } catch { }
-  try { dataSources = JSON.parse(region.dataSources || "[]"); } catch { }
-
-  // 按产品类型分组价格数据
+  // 按产品类型分组价格数据 (must be before any early return to respect hooks rules)
   const priceByProduct = useMemo(() => {
     if (!prices || prices.length === 0) return {};
     const map: Record<string, any[]> = {};
@@ -194,6 +182,19 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
 
   const productTypes = useMemo(() => Object.keys(priceByProduct), [priceByProduct]);
   const chartColors = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+
+  // Early return for loading state - AFTER all hooks
+  if (!region) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+
+  const flag = REGION_FLAGS[regionCode] || "🌍";
+  const color = REGION_COLORS[regionCode] || "#6b7280";
+
+  let producingAreas: { name: string; description: string }[] = [];
+  let topCompanies: { name: string; description: string }[] = [];
+  let dataSources: { name: string; url?: string }[] = [];
+  try { producingAreas = JSON.parse(region.mainProducingAreas || "[]"); } catch { }
+  try { topCompanies = JSON.parse(region.topCompanies || "[]"); } catch { }
+  try { dataSources = JSON.parse(region.dataSources || "[]"); } catch { }
 
   return (
     <div className="space-y-6">
