@@ -6,7 +6,8 @@ import {
   companyContacts, companyCreditRatings, customerLifecycle, abTestTemplates,
   teamRegionAccess, backupRecords, poultryTradeData,
   aiRecommendExclusions, todoItems, emailBatchJobs, weeklyMarketReports,
-  teamActivities, companyChangeHistory
+  teamActivities, companyChangeHistory,
+  productionRegions, regionMarketPrices, regionDiseaseAlerts, regionIndustryNews
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -840,4 +841,58 @@ export async function getUpcomingReminders(userId: number, days = 7) {
       )
     )
     .orderBy(asc(favorites.followUpDate));
+}
+
+
+// ==================== PRODUCTION REGIONS ====================
+export async function getAllProductionRegions() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(productionRegions).orderBy(asc(productionRegions.globalProductionRank));
+}
+
+export async function getProductionRegionByCode(code: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(productionRegions).where(eq(productionRegions.code, code)).limit(1);
+  return result[0] ?? undefined;
+}
+
+export async function getRegionMarketPricesByCode(regionCode: string, limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(regionMarketPrices)
+    .where(eq(regionMarketPrices.regionCode, regionCode))
+    .orderBy(desc(regionMarketPrices.date))
+    .limit(limit);
+}
+
+export async function getRegionDiseaseAlertsByCode(regionCode: string, limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(regionDiseaseAlerts)
+    .where(eq(regionDiseaseAlerts.regionCode, regionCode))
+    .orderBy(desc(regionDiseaseAlerts.date))
+    .limit(limit);
+}
+
+export async function getRegionIndustryNewsByCode(regionCode: string, category?: string, limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(regionIndustryNews.regionCode, regionCode)];
+  if (category && category !== 'all') {
+    conditions.push(eq(regionIndustryNews.category, category));
+  }
+  return db.select().from(regionIndustryNews)
+    .where(and(...conditions))
+    .orderBy(desc(regionIndustryNews.date))
+    .limit(limit);
+}
+
+export async function getGlobalDiseaseAlerts(limit = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(regionDiseaseAlerts)
+    .orderBy(desc(regionDiseaseAlerts.date))
+    .limit(limit);
 }

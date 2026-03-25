@@ -24,7 +24,7 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, LogOut, PanelLeft, Globe, Map, Heart, Users, Mail, Shield, Search, FileText, TrendingUp,
-  GitBranch, Download, FlaskConical, Database, BarChart3, Bell, Sparkles, Zap, ListTodo, Newspaper
+  GitBranch, Download, FlaskConical, Database, BarChart3, Bell, Sparkles, Zap, ListTodo, Newspaper, Factory
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -46,6 +46,7 @@ const menuGroups: MenuGroup[] = [
       { icon: TrendingUp, label: "市场洞察", path: "/insights" },
       { icon: FileText, label: "报告全文", path: "/report" },
       { icon: BarChart3, label: "贸易数据", path: "/trade" },
+      { icon: Factory, label: "主产区分析", path: "/production-regions" },
       { icon: Newspaper, label: "每周分析", path: "/weekly-report" },
     ],
   },

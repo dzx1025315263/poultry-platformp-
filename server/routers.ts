@@ -799,6 +799,21 @@ export const appRouter = router({
     auditLogs: adminProcedure.input(z.object({ page: z.number().optional(), pageSize: z.number().optional() }))
       .query(({ input }) => db.getAuditLogs(input.page, input.pageSize)),
   }),
+
+  // V3.0: 主产区分析
+  productionRegions: router({
+    list: protectedProcedure.query(() => db.getAllProductionRegions()),
+    getByCode: protectedProcedure.input(z.object({ code: z.string() }))
+      .query(({ input }) => db.getProductionRegionByCode(input.code)),
+    marketPrices: protectedProcedure.input(z.object({ regionCode: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.getRegionMarketPricesByCode(input.regionCode, input.limit)),
+    diseaseAlerts: protectedProcedure.input(z.object({ regionCode: z.string(), limit: z.number().optional() }))
+      .query(({ input }) => db.getRegionDiseaseAlertsByCode(input.regionCode, input.limit)),
+    industryNews: protectedProcedure.input(z.object({ regionCode: z.string(), category: z.string().optional(), limit: z.number().optional() }))
+      .query(({ input }) => db.getRegionIndustryNewsByCode(input.regionCode, input.category, input.limit)),
+    globalAlerts: protectedProcedure.input(z.object({ limit: z.number().optional() }).optional())
+      .query(({ input }) => db.getGlobalDiseaseAlerts(input?.limit)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

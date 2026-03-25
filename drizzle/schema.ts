@@ -316,3 +316,74 @@ export const companyChangeHistory = mysqlTable("company_change_history", {
   newValue: text("newValue"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+// V3.0: 主产区分析模块 - 产区基础信息表
+export const productionRegions = mysqlTable("production_regions", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 10 }).notNull().unique(),      // 'CN','US','BR','EU','TH','TR'
+  name: varchar("name", { length: 100 }).notNull(),               // 中文名
+  nameEn: varchar("nameEn", { length: 100 }).notNull(),           // 英文名
+  flagEmoji: varchar("flagEmoji", { length: 10 }),                // 国旗emoji
+  annualProductionMt: text("annualProductionMt"),                 // 年产量(万吨)
+  annualExportMt: text("annualExportMt"),                         // 年出口量(万吨)
+  globalProductionRank: int("globalProductionRank"),              // 全球产量排名
+  globalExportRank: int("globalExportRank"),                      // 全球出口排名
+  mainProducingAreas: text("mainProducingAreas"),                 // 主产区(JSON)
+  topCompanies: text("topCompanies"),                             // 龙头企业(JSON)
+  industryStatus: varchar("industryStatus", { length: 50 }),      // 产业状态
+  statusDescription: text("statusDescription"),                   // 状态详细描述
+  keyAdvantages: text("keyAdvantages"),                           // 核心优势(JSON)
+  halalCertification: boolean("halalCertification").default(false),
+  heatTreatmentCapability: boolean("heatTreatmentCapability").default(false),
+  dataYear: int("dataYear").default(2025),
+  dataSources: text("dataSources"),                               // 数据来源(JSON)
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+// V3.0: 主产区分析模块 - 产区价格行情表
+export const regionMarketPrices = mysqlTable("region_market_prices", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }).notNull(),
+  date: varchar("date", { length: 20 }).notNull(),                // '2025-03' 或 '2025-03-25'
+  productType: varchar("productType", { length: 50 }).notNull(),  // 'broiler','corn','soybean','frozen_chicken'
+  productLabel: varchar("productLabel", { length: 100 }),         // 显示名称
+  price: text("price").notNull(),                                 // 价格数值
+  unit: varchar("unit", { length: 30 }).notNull(),                // 'CNY/kg','USD/lb','BRL/kg'
+  priceUsd: text("priceUsd"),                                     // 统一换算为USD的价格
+  trend: varchar("trend", { length: 10 }),                        // 'up','down','stable'
+  changePercent: text("changePercent"),                            // 环比变化%
+  source: varchar("source", { length: 200 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V3.0: 主产区分析模块 - 产区疫病预警表
+export const regionDiseaseAlerts = mysqlTable("region_disease_alerts", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }).notNull(),
+  date: varchar("date", { length: 20 }).notNull(),
+  diseaseType: varchar("diseaseType", { length: 100 }).notNull(), // 'HPAI H5N1','Newcastle Disease'
+  location: varchar("location", { length: 300 }),                 // 具体地点
+  impactLevel: mysqlEnum("impactLevel", ["critical", "high", "medium", "low"]).default("medium"),
+  affectedBirds: text("affectedBirds"),                           // 受影响禽只数
+  tradeImpact: text("tradeImpact"),                               // 贸易影响描述
+  description: text("description"),
+  source: varchar("source", { length: 200 }),
+  sourceUrl: text("sourceUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+// V3.0: 主产区分析模块 - 产区产业动态表
+export const regionIndustryNews = mysqlTable("region_industry_news", {
+  id: int("id").autoincrement().primaryKey(),
+  regionCode: varchar("regionCode", { length: 10 }).notNull(),
+  date: varchar("date", { length: 20 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(),       // 'policy','company','market','technology','trade'
+  title: varchar("title", { length: 500 }).notNull(),
+  summary: text("summary"),                                       // 摘要
+  content: text("content"),                                       // 详细内容
+  importance: mysqlEnum("importance", ["breaking", "important", "normal"]).default("normal"),
+  source: varchar("source", { length: 200 }),
+  sourceUrl: text("sourceUrl"),
+  tags: text("tags"),                                             // JSON标签数组
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
