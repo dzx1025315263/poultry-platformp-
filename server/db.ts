@@ -848,20 +848,70 @@ export async function getUpcomingReminders(userId: number, days = 7) {
 export async function getAllProductionRegions() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(productionRegions).orderBy(asc(productionRegions.globalProductionRank));
+  return db.select({
+    id: productionRegions.id,
+    code: productionRegions.code,
+    name: productionRegions.name,
+    nameEn: productionRegions.nameEn,
+    flagEmoji: productionRegions.flagEmoji,
+    annualProductionMt: productionRegions.annualProductionMt,
+    annualExportMt: productionRegions.annualExportMt,
+    globalProductionRank: productionRegions.globalProductionRank,
+    globalExportRank: productionRegions.globalExportRank,
+    mainProducingAreas: productionRegions.mainProducingAreas,
+    topCompanies: productionRegions.topCompanies,
+    industryStatus: productionRegions.industryStatus,
+    statusDescription: productionRegions.statusDescription,
+    keyAdvantages: productionRegions.keyAdvantages,
+    halalCertification: productionRegions.halalCertification,
+    heatTreatmentCapability: productionRegions.heatTreatmentCapability,
+    dataYear: productionRegions.dataYear,
+    dataSources: productionRegions.dataSources,
+  }).from(productionRegions).orderBy(asc(productionRegions.globalProductionRank));
 }
 
 export async function getProductionRegionByCode(code: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(productionRegions).where(eq(productionRegions.code, code)).limit(1);
+  const result = await db.select({
+    id: productionRegions.id,
+    code: productionRegions.code,
+    name: productionRegions.name,
+    nameEn: productionRegions.nameEn,
+    flagEmoji: productionRegions.flagEmoji,
+    annualProductionMt: productionRegions.annualProductionMt,
+    annualExportMt: productionRegions.annualExportMt,
+    globalProductionRank: productionRegions.globalProductionRank,
+    globalExportRank: productionRegions.globalExportRank,
+    mainProducingAreas: productionRegions.mainProducingAreas,
+    topCompanies: productionRegions.topCompanies,
+    industryStatus: productionRegions.industryStatus,
+    statusDescription: productionRegions.statusDescription,
+    keyAdvantages: productionRegions.keyAdvantages,
+    halalCertification: productionRegions.halalCertification,
+    heatTreatmentCapability: productionRegions.heatTreatmentCapability,
+    dataYear: productionRegions.dataYear,
+    dataSources: productionRegions.dataSources,
+  }).from(productionRegions).where(eq(productionRegions.code, code)).limit(1);
   return result[0] ?? undefined;
 }
 
 export async function getRegionMarketPricesByCode(regionCode: string, limit = 100) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(regionMarketPrices)
+  return db.select({
+    id: regionMarketPrices.id,
+    regionCode: regionMarketPrices.regionCode,
+    date: regionMarketPrices.date,
+    productType: regionMarketPrices.productType,
+    productLabel: regionMarketPrices.productLabel,
+    price: regionMarketPrices.price,
+    unit: regionMarketPrices.unit,
+    priceUsd: regionMarketPrices.priceUsd,
+    trend: regionMarketPrices.trend,
+    changePercent: regionMarketPrices.changePercent,
+    source: regionMarketPrices.source,
+  }).from(regionMarketPrices)
     .where(eq(regionMarketPrices.regionCode, regionCode))
     .orderBy(desc(regionMarketPrices.date))
     .limit(limit);
@@ -870,7 +920,19 @@ export async function getRegionMarketPricesByCode(regionCode: string, limit = 10
 export async function getRegionDiseaseAlertsByCode(regionCode: string, limit = 50) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(regionDiseaseAlerts)
+  return db.select({
+    id: regionDiseaseAlerts.id,
+    regionCode: regionDiseaseAlerts.regionCode,
+    date: regionDiseaseAlerts.date,
+    diseaseType: regionDiseaseAlerts.diseaseType,
+    location: regionDiseaseAlerts.location,
+    impactLevel: regionDiseaseAlerts.impactLevel,
+    affectedBirds: regionDiseaseAlerts.affectedBirds,
+    tradeImpact: regionDiseaseAlerts.tradeImpact,
+    description: regionDiseaseAlerts.description,
+    source: regionDiseaseAlerts.source,
+    sourceUrl: regionDiseaseAlerts.sourceUrl,
+  }).from(regionDiseaseAlerts)
     .where(eq(regionDiseaseAlerts.regionCode, regionCode))
     .orderBy(desc(regionDiseaseAlerts.date))
     .limit(limit);
@@ -883,7 +945,19 @@ export async function getRegionIndustryNewsByCode(regionCode: string, category?:
   if (category && category !== 'all') {
     conditions.push(eq(regionIndustryNews.category, category));
   }
-  return db.select().from(regionIndustryNews)
+  return db.select({
+    id: regionIndustryNews.id,
+    regionCode: regionIndustryNews.regionCode,
+    date: regionIndustryNews.date,
+    category: regionIndustryNews.category,
+    title: regionIndustryNews.title,
+    summary: regionIndustryNews.summary,
+    content: regionIndustryNews.content,
+    importance: regionIndustryNews.importance,
+    source: regionIndustryNews.source,
+    sourceUrl: regionIndustryNews.sourceUrl,
+    tags: regionIndustryNews.tags,
+  }).from(regionIndustryNews)
     .where(and(...conditions))
     .orderBy(desc(regionIndustryNews.date))
     .limit(limit);
@@ -892,7 +966,19 @@ export async function getRegionIndustryNewsByCode(regionCode: string, category?:
 export async function getGlobalDiseaseAlerts(limit = 30) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(regionDiseaseAlerts)
+  return db.select({
+    id: regionDiseaseAlerts.id,
+    regionCode: regionDiseaseAlerts.regionCode,
+    date: regionDiseaseAlerts.date,
+    diseaseType: regionDiseaseAlerts.diseaseType,
+    location: regionDiseaseAlerts.location,
+    impactLevel: regionDiseaseAlerts.impactLevel,
+    affectedBirds: regionDiseaseAlerts.affectedBirds,
+    tradeImpact: regionDiseaseAlerts.tradeImpact,
+    description: regionDiseaseAlerts.description,
+    source: regionDiseaseAlerts.source,
+    sourceUrl: regionDiseaseAlerts.sourceUrl,
+  }).from(regionDiseaseAlerts)
     .orderBy(desc(regionDiseaseAlerts.date))
     .limit(limit);
 }
