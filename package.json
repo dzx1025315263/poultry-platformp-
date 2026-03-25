@@ -1,6 +1,7 @@
 {
   "name": "poultry-platform",
-  "version": "1.1.0",
+  "version": "1.2.0",
+  "buildTimestamp": "20260325-v2",
   "type": "module",
   "license": "MIT",
   "scripts": {
