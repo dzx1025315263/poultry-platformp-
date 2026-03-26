@@ -63,7 +63,7 @@ function createBubbleIcon(count: number, maxCount: number, color: string) {
   const sz = Math.max(28, Math.min(64, 28 + (count / maxCount) * 36));
   const fontSize = Math.max(10, sz / 4);
   return L.divIcon({
-    className: "",
+    className: "leaflet-marker-custom",
     iconSize: [sz, sz],
     iconAnchor: [sz / 2, sz / 2],
     html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;"><span style="color:white;font-size:${fontSize}px;font-weight:bold">${count}</span></div>`,
@@ -74,7 +74,7 @@ function createCityIcon(count: number, maxCount: number, cityName: string) {
   const sz = Math.max(24, Math.min(52, 24 + (count / maxCount) * 28));
   const fontSize = Math.max(9, sz / 4.5);
   return L.divIcon({
-    className: "",
+    className: "leaflet-marker-custom",
     iconSize: [sz, sz + 18],
     iconAnchor: [sz / 2, sz / 2 + 9],
     html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
@@ -90,7 +90,7 @@ function createCompanyIcon(name: string, isChina: boolean) {
   const color = isChina ? "rgba(34,139,34,0.9)" : "rgba(59,130,246,0.9)";
   const shortName = name.replace(/\s*[\(（].*?[\)）]\s*/g, "").substring(0, 16);
   return L.divIcon({
-    className: "",
+    className: "leaflet-marker-custom",
     iconSize: [28, 46],
     iconAnchor: [14, 23],
     html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
@@ -102,29 +102,39 @@ function createCompanyIcon(name: string, isChina: boolean) {
   });
 }
 
-export default function MapPage() {
-  const { data: countryStats } = trpc.company.countryStats.useQuery();
-  const { data: cityStats } = trpc.company.cityStats.useQuery();
-
-  const [viewLevel, setViewLevel] = useState<ViewLevel>("global");
-  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const { data: cityCompanies, isLoading: companiesLoading } = trpc.company.byCity.useQuery(
-    { country: selectedCountry!, city: selectedCity! },
-    { enabled: !!selectedCountry && !!selectedCity }
-  );
-
-  const mapContainerRef = useRef<HTMLDivElement>(null);
+/* ─── Isolated Leaflet Map Component ─── */
+/* This component manages Leaflet entirely outside React's virtual DOM to prevent
+   the "removeChild" error caused by Leaflet and React both manipulating the same DOM nodes. */
+function LeafletMap({
+  onCountryClick,
+  onCityClick,
+  countryStats,
+  cityStats,
+  cityCompanies,
+  viewLevel,
+  selectedCountry,
+  selectedCity,
+}: {
+  onCountryClick: (country: string) => void;
+  onCityClick: (city: string, lat: number, lng: number) => void;
+  countryStats: any[] | undefined;
+  cityStats: any[] | undefined;
+  cityCompanies: any[] | undefined;
+  viewLevel: ViewLevel;
+  selectedCountry: string | null;
+  selectedCity: string | null;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  /* ─── Initialize Leaflet map ─── */
+  // Initialize map once
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    if (!containerRef.current) return;
+    // Prevent double init
+    if (mapRef.current) return;
 
-    const map = L.map(mapContainerRef.current, {
+    const map = L.map(containerRef.current, {
       center: [25, 45],
       zoom: 3,
       zoomControl: true,
@@ -147,97 +157,107 @@ export default function MapPage() {
       mapRef.current = null;
       markersLayerRef.current = null;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ─── Clear markers helper ─── */
-  const clearMarkers = useCallback(() => {
-    if (markersLayerRef.current) markersLayerRef.current.clearLayers();
-  }, []);
-
-  /* ─── Show country bubbles (global view) ─── */
-  const showCountryBubbles = useCallback((stats: any[]) => {
-    clearMarkers();
-    if (!markersLayerRef.current) return;
-    const mx = Math.max(...stats.map((s: any) => s.count), 1);
-    stats.forEach((s: any) => {
-      const co = CC[s.country];
-      if (!co) return;
-      const icon = createBubbleIcon(s.count, mx, "rgba(59,130,246,0.85)");
-      const marker = L.marker(co, { icon }).addTo(markersLayerRef.current!);
-      marker.bindTooltip(`${s.country}: ${s.count}家企业`, { direction: "top", offset: [0, -10] });
-      marker.on("click", () => {
-        setSelectedCountry(s.country);
-        setSelectedCity(null);
-        setViewLevel("country");
-        setSearchQuery("");
-        if (mapRef.current) {
-          mapRef.current.setView(co, 5, { animate: true });
-        }
-      });
-    });
-  }, [clearMarkers]);
-
-  /* ─── Show city pins (country view) ─── */
-  const showCityPins = useCallback((country: string) => {
-    clearMarkers();
-    if (!markersLayerRef.current || !cityStats) return;
-    const countryCities = cityStats.filter((c: any) => c.country === country && c.latitude && c.longitude);
-    if (countryCities.length === 0) return;
-    const mx = Math.max(...countryCities.map((c: any) => c.count), 1);
-    countryCities.forEach((c: any) => {
-      const lat = parseFloat(c.latitude);
-      const lng = parseFloat(c.longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
-      const icon = createCityIcon(c.count, mx, c.city || "未知");
-      const marker = L.marker([lat, lng], { icon }).addTo(markersLayerRef.current!);
-      marker.bindTooltip(`${c.city}: ${c.count}家企业`, { direction: "top", offset: [0, -10] });
-      marker.on("click", () => {
-        setSelectedCity(c.city);
-        setViewLevel("city");
-        setSearchQuery("");
-        if (mapRef.current) {
-          mapRef.current.setView([lat, lng], 10, { animate: true });
-        }
-      });
-    });
-  }, [clearMarkers, cityStats]);
-
-  /* ─── Show company markers (city view) ─── */
-  const showCompanyMarkers = useCallback((comps: any[]) => {
-    clearMarkers();
-    if (!markersLayerRef.current) return;
-    comps.forEach((c: any) => {
-      const lat = parseFloat(c.latitude);
-      const lng = parseFloat(c.longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
-      const jitterLat = lat + (Math.random() - 0.5) * 0.01;
-      const jitterLng = lng + (Math.random() - 0.5) * 0.01;
-      const isChina = c.hasPurchasedFromChina === "是";
-      const icon = createCompanyIcon(c.companyName, isChina);
-      const marker = L.marker([jitterLat, jitterLng], { icon }).addTo(markersLayerRef.current!);
-      marker.bindPopup(`
-        <div style="min-width:200px;font-family:system-ui;">
-          <b style="font-size:13px;">${c.companyName}</b><br/>
-          <span style="color:#666;font-size:11px;">${c.coreRole || ""}</span><br/>
-          ${c.mainProducts ? `<span style="color:#888;font-size:10px;">${c.mainProducts.substring(0, 100)}</span><br/>` : ""}
-          ${isChina ? '<span style="color:green;font-size:11px;font-weight:bold;">✓ 已在中国采购</span>' : ""}
-        </div>
-      `);
-    });
-  }, [clearMarkers]);
-
-  /* ─── Sync markers with view level changes ─── */
+  // Update markers when data or view changes
   useEffect(() => {
-    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const layer = markersLayerRef.current;
+    if (!map || !layer) return;
+
+    layer.clearLayers();
+
     if (viewLevel === "global" && countryStats) {
-      showCountryBubbles(countryStats);
-      mapRef.current.setView([25, 45], 3, { animate: true });
+      const mx = Math.max(...countryStats.map((s: any) => s.count), 1);
+      countryStats.forEach((s: any) => {
+        const co = CC[s.country];
+        if (!co) return;
+        const icon = createBubbleIcon(s.count, mx, "rgba(59,130,246,0.85)");
+        const marker = L.marker(co, { icon }).addTo(layer);
+        marker.bindTooltip(`${s.country}: ${s.count}家企业`, { direction: "top", offset: [0, -10] });
+        marker.on("click", () => onCountryClick(s.country));
+      });
+      map.setView([25, 45], 3, { animate: true });
     } else if (viewLevel === "country" && selectedCountry && cityStats) {
-      showCityPins(selectedCountry);
-    } else if (viewLevel === "city" && cityCompanies) {
-      showCompanyMarkers(cityCompanies);
+      const countryCities = cityStats.filter((c: any) => c.country === selectedCountry && c.latitude && c.longitude);
+      if (countryCities.length > 0) {
+        const mx = Math.max(...countryCities.map((c: any) => c.count), 1);
+        const bounds: L.LatLngBoundsExpression = [];
+        countryCities.forEach((c: any) => {
+          const lat = parseFloat(c.latitude);
+          const lng = parseFloat(c.longitude);
+          if (isNaN(lat) || isNaN(lng)) return;
+          (bounds as [number, number][]).push([lat, lng]);
+          const icon = createCityIcon(c.count, mx, c.city || "未知");
+          const marker = L.marker([lat, lng], { icon }).addTo(layer);
+          marker.bindTooltip(`${c.city}: ${c.count}家企业`, { direction: "top", offset: [0, -10] });
+          marker.on("click", () => onCityClick(c.city, lat, lng));
+        });
+        if ((bounds as [number, number][]).length > 0) {
+          try { map.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [40, 40], maxZoom: 8 }); } catch {}
+        }
+      } else {
+        const center = CC[selectedCountry];
+        if (center) map.setView(center, 5, { animate: true });
+      }
+    } else if (viewLevel === "city" && cityCompanies && cityCompanies.length > 0) {
+      const bounds: [number, number][] = [];
+      cityCompanies.forEach((c: any) => {
+        const lat = parseFloat(c.latitude);
+        const lng = parseFloat(c.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
+        const jitterLat = lat + (Math.random() - 0.5) * 0.01;
+        const jitterLng = lng + (Math.random() - 0.5) * 0.01;
+        bounds.push([jitterLat, jitterLng]);
+        const isChina = c.hasPurchasedFromChina === "是";
+        const icon = createCompanyIcon(c.companyName, isChina);
+        const marker = L.marker([jitterLat, jitterLng], { icon }).addTo(layer);
+        marker.bindPopup(`
+          <div style="min-width:200px;font-family:system-ui;">
+            <b style="font-size:13px;">${c.companyName}</b><br/>
+            <span style="color:#666;font-size:11px;">${c.coreRole || ""}</span><br/>
+            ${c.mainProducts ? `<span style="color:#888;font-size:10px;">${c.mainProducts.substring(0, 100)}</span>` : ""}
+          </div>
+        `);
+      });
+      if (bounds.length > 0) {
+        try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 }); } catch {}
+      }
     }
-  }, [viewLevel, selectedCountry, selectedCity, countryStats, cityStats, cityCompanies, showCountryBubbles, showCityPins, showCompanyMarkers]);
+  }, [viewLevel, selectedCountry, selectedCity, countryStats, cityStats, cityCompanies, onCountryClick, onCityClick]);
+
+  /* The key fix: this div is never re-rendered by React because it has no children
+     managed by React. Leaflet exclusively owns the DOM inside this container. */
+  return <div ref={containerRef} style={{ height: "600px", width: "100%" }} />;
+}
+
+export default function MapPage() {
+  const { data: countryStats } = trpc.company.countryStats.useQuery();
+  const { data: cityStats } = trpc.company.cityStats.useQuery();
+
+  const [viewLevel, setViewLevel] = useState<ViewLevel>("global");
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { data: cityCompanies, isLoading: companiesLoading } = trpc.company.byCity.useQuery(
+    { country: selectedCountry!, city: selectedCity! },
+    { enabled: !!selectedCountry && !!selectedCity }
+  );
+
+  /* ─── Map callbacks (stable references) ─── */
+  const handleCountryClick = useCallback((country: string) => {
+    setSelectedCountry(country);
+    setSelectedCity(null);
+    setViewLevel("country");
+    setSearchQuery("");
+  }, []);
+
+  const handleCityClick = useCallback((city: string, _lat: number, _lng: number) => {
+    setSelectedCity(city);
+    setViewLevel("city");
+    setSearchQuery("");
+  }, []);
 
   /* ─── Navigation ─── */
   const goBack = useCallback(() => {
@@ -245,17 +265,13 @@ export default function MapPage() {
       setSelectedCity(null);
       setViewLevel("country");
       setSearchQuery("");
-      if (mapRef.current && selectedCountry) {
-        const center = CC[selectedCountry];
-        if (center) mapRef.current.setView(center, 5, { animate: true });
-      }
     } else if (viewLevel === "country") {
       setSelectedCountry(null);
       setSelectedCity(null);
       setViewLevel("global");
       setSearchQuery("");
     }
-  }, [viewLevel, selectedCountry]);
+  }, [viewLevel]);
 
   /* ─── Stats for sidebar ─── */
   const countryCitiesList = useMemo(() => {
@@ -281,6 +297,13 @@ export default function MapPage() {
       c.mainProducts?.toLowerCase().includes(q)
     );
   }, [cityCompanies, searchQuery]);
+
+  const filteredCountryStats = useMemo(() => {
+    if (!countryStats) return [];
+    if (!searchQuery.trim()) return countryStats;
+    const q = searchQuery.toLowerCase();
+    return countryStats.filter((s: any) => s.country.toLowerCase().includes(q));
+  }, [countryStats, searchQuery]);
 
   const totalCountries = countryStats?.length || 0;
   const totalCompanies = countryStats?.reduce((s: number, c: any) => s + c.count, 0) || 0;
@@ -339,10 +362,19 @@ export default function MapPage() {
 
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Map */}
+        {/* Map - isolated Leaflet component */}
         <div className="lg:col-span-2">
           <Card className="overflow-hidden">
-            <div ref={mapContainerRef} style={{ height: "600px", width: "100%" }} />
+            <LeafletMap
+              onCountryClick={handleCountryClick}
+              onCityClick={handleCityClick}
+              countryStats={countryStats}
+              cityStats={cityStats}
+              cityCompanies={cityCompanies}
+              viewLevel={viewLevel}
+              selectedCountry={selectedCountry}
+              selectedCity={selectedCity}
+            />
           </Card>
         </div>
 
@@ -362,25 +394,16 @@ export default function MapPage() {
               <CardContent className="flex-1 overflow-hidden p-0">
                 <ScrollArea className="h-full px-4 pb-4">
                   <div className="space-y-1">
-                    {countryStats
-                      ?.filter((s: any) => !searchQuery || s.country.toLowerCase().includes(searchQuery.toLowerCase()))
-                      .map((s: any) => (
-                        <div key={s.country} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => {
-                            setSelectedCountry(s.country);
-                            setSelectedCity(null);
-                            setViewLevel("country");
-                            setSearchQuery("");
-                            const center = CC[s.country];
-                            if (center && mapRef.current) mapRef.current.setView(center, 5, { animate: true });
-                          }}>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-sm font-medium truncate">{s.country}</span>
-                          </div>
-                          <Badge variant="secondary" className="text-xs shrink-0">{s.count}家</Badge>
+                    {filteredCountryStats.map((s: any) => (
+                      <div key={s.country} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => handleCountryClick(s.country)}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="text-sm font-medium truncate">{s.country}</span>
                         </div>
-                      ))}
+                        <Badge variant="secondary" className="text-xs shrink-0">{s.count}家</Badge>
+                      </div>
+                    ))}
                   </div>
                 </ScrollArea>
               </CardContent>
@@ -408,12 +431,9 @@ export default function MapPage() {
                     {filteredCitiesList.map((c: any, i: number) => (
                       <div key={`${c.city}-${i}`} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                         onClick={() => {
-                          setSelectedCity(c.city);
-                          setViewLevel("city");
-                          setSearchQuery("");
                           const lat = parseFloat(c.latitude);
                           const lng = parseFloat(c.longitude);
-                          if (!isNaN(lat) && !isNaN(lng) && mapRef.current) mapRef.current.setView([lat, lng], 10, { animate: true });
+                          handleCityClick(c.city, lat, lng);
                         }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
