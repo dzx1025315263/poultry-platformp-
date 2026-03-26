@@ -1,5 +1,4 @@
 import { trpc } from "@/lib/trpc";
-import { MapView } from "@/components/Map";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,43 +6,101 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { ExternalLink, X, MapPin, Building2, ChevronLeft, Search, Globe, Navigation, Users } from "lucide-react";
 import { useRef, useState, useCallback, useMemo, useEffect } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 /* ─── Country center coords fallback ─── */
-const CC: Record<string, { lat: number; lng: number }> = {
-  "沙特阿拉伯":{lat:23.89,lng:45.08},"阿联酋":{lat:23.42,lng:53.85},"卡塔尔":{lat:25.35,lng:51.18},
-  "科威特":{lat:29.31,lng:47.48},"阿曼":{lat:21.47,lng:55.98},"巴林":{lat:26.07,lng:50.56},
-  "伊拉克":{lat:33.22,lng:43.68},"约旦":{lat:30.59,lng:36.24},"黎巴嫩":{lat:33.85,lng:35.86},
-  "也门":{lat:15.55,lng:48.52},"叙利亚":{lat:34.80,lng:38.99},"巴勒斯坦":{lat:31.95,lng:35.23},
-  "中国":{lat:35.86,lng:104.20},"日本":{lat:36.20,lng:138.25},"韩国":{lat:35.91,lng:127.77},
-  "菲律宾":{lat:12.88,lng:121.77},"越南":{lat:14.06,lng:108.28},"泰国":{lat:15.87,lng:100.99},
-  "马来西亚":{lat:4.21,lng:101.98},"印度尼西亚":{lat:-0.79,lng:113.92},"新加坡":{lat:1.35,lng:103.82},
-  "缅甸":{lat:21.92,lng:95.96},"柬埔寨":{lat:12.57,lng:104.99},"印度":{lat:20.59,lng:78.96},
-  "巴基斯坦":{lat:30.38,lng:69.35},"孟加拉国":{lat:23.69,lng:90.36},
-  "南非":{lat:-30.56,lng:22.94},"尼日利亚":{lat:9.08,lng:8.68},"加纳":{lat:7.95,lng:-1.02},
-  "肯尼亚":{lat:-0.02,lng:37.91},"坦桑尼亚":{lat:-6.37,lng:34.89},"埃及":{lat:26.82,lng:30.80},
-  "摩洛哥":{lat:31.79,lng:-7.09},"利比亚":{lat:26.34,lng:17.23},"安哥拉":{lat:-11.20,lng:17.87},
-  "莫桑比克":{lat:-18.67,lng:35.53},"刚果(金)":{lat:-4.04,lng:21.76},"喀麦隆":{lat:7.37,lng:12.35},
-  "科特迪瓦":{lat:7.54,lng:-5.55},"塞内加尔":{lat:14.50,lng:-14.45},"贝宁":{lat:9.31,lng:2.32},
-  "加蓬":{lat:-0.80,lng:11.61},"马达加斯加":{lat:-18.77,lng:46.87},"毛里求斯":{lat:-20.35,lng:57.55},
-  "赞比亚":{lat:-13.13,lng:27.85},"津巴布韦":{lat:-19.02,lng:29.15},"苏丹":{lat:12.86,lng:30.22},
-  "索马里":{lat:5.15,lng:46.20},"利比里亚":{lat:6.43,lng:-9.43},"塞拉利昂":{lat:8.46,lng:-11.78},
-  "几内亚":{lat:9.95,lng:-9.70},"多哥":{lat:8.62,lng:0.82},"埃塞俄比亚":{lat:9.15,lng:40.49},
-  "英国":{lat:55.38,lng:-3.44},"荷兰":{lat:52.13,lng:5.29},"德国":{lat:51.17,lng:10.45},
-  "法国":{lat:46.23,lng:2.21},"西班牙":{lat:40.46,lng:-3.75},"意大利":{lat:41.87,lng:12.57},
-  "波兰":{lat:51.92,lng:19.15},"比利时":{lat:50.50,lng:4.47},"丹麦":{lat:56.26,lng:9.50},
-  "瑞典":{lat:60.13,lng:18.64},"爱尔兰":{lat:53.14,lng:-7.69},"葡萄牙":{lat:39.40,lng:-8.22},
-  "希腊":{lat:39.07,lng:21.82},"欧盟":{lat:50.85,lng:4.35},
-  "巴西":{lat:-14.24,lng:-51.93},"墨西哥":{lat:23.63,lng:-102.55},"哥伦比亚":{lat:4.57,lng:-74.30},
-  "智利":{lat:-35.68,lng:-71.54},"秘鲁":{lat:-9.19,lng:-75.02},"阿根廷":{lat:-38.42,lng:-63.62},
-  "古巴":{lat:21.52,lng:-77.78},"美国":{lat:37.09,lng:-95.71},"加拿大":{lat:56.13,lng:-106.35},
-  "俄罗斯":{lat:61.52,lng:105.32},"乌克兰":{lat:48.38,lng:31.17},"哈萨克斯坦":{lat:48.02,lng:66.92},
-  "乌兹别克斯坦":{lat:41.38,lng:64.59},"格鲁吉亚":{lat:42.32,lng:43.36},"亚美尼亚":{lat:40.07,lng:45.04},
-  "阿塞拜疆":{lat:40.14,lng:47.58},"白俄罗斯":{lat:53.71,lng:27.95},"澳大利亚":{lat:-25.27,lng:133.78},
-  "新西兰":{lat:-40.90,lng:174.89},"土耳其":{lat:38.96,lng:35.24},"伊朗":{lat:32.43,lng:53.69},
-  "以色列":{lat:31.05,lng:34.85},
+const CC: Record<string, [number, number]> = {
+  "沙特阿拉伯":[23.89,45.08],"阿联酋":[23.42,53.85],"卡塔尔":[25.35,51.18],
+  "科威特":[29.31,47.48],"阿曼":[21.47,55.98],"巴林":[26.07,50.56],
+  "伊拉克":[33.22,43.68],"约旦":[30.59,36.24],"黎巴嫩":[33.85,35.86],
+  "也门":[15.55,48.52],"叙利亚":[34.80,38.99],"巴勒斯坦":[31.95,35.23],
+  "中国":[35.86,104.20],"日本":[36.20,138.25],"韩国":[35.91,127.77],
+  "菲律宾":[12.88,121.77],"越南":[14.06,108.28],"泰国":[15.87,100.99],
+  "马来西亚":[4.21,101.98],"印度尼西亚":[-0.79,113.92],"新加坡":[1.35,103.82],
+  "缅甸":[21.92,95.96],"柬埔寨":[12.57,104.99],"印度":[20.59,78.96],
+  "巴基斯坦":[30.38,69.35],"孟加拉国":[23.69,90.36],
+  "南非":[-30.56,22.94],"尼日利亚":[9.08,8.68],"加纳":[7.95,-1.02],
+  "肯尼亚":[-0.02,37.91],"坦桑尼亚":[-6.37,34.89],"埃及":[26.82,30.80],
+  "摩洛哥":[31.79,-7.09],"利比亚":[26.34,17.23],"安哥拉":[-11.20,17.87],
+  "莫桑比克":[-18.67,35.53],"刚果(金)":[-4.04,21.76],"刚果（金）":[-4.04,21.76],
+  "喀麦隆":[7.37,12.35],"科特迪瓦":[7.54,-5.55],"塞内加尔":[14.50,-14.45],
+  "贝宁":[9.31,2.32],"加蓬":[-0.80,11.61],"马达加斯加":[-18.77,46.87],
+  "毛里求斯":[-20.35,57.55],"赞比亚":[-13.13,27.85],"津巴布韦":[-19.02,29.15],
+  "苏丹":[12.86,30.22],"索马里":[5.15,46.20],"利比里亚":[6.43,-9.43],
+  "塞拉利昂":[8.46,-11.78],"几内亚":[9.95,-9.70],"多哥":[8.62,0.82],
+  "埃塞俄比亚":[9.15,40.49],"英国":[55.38,-3.44],"荷兰":[52.13,5.29],
+  "德国":[51.17,10.45],"法国":[46.23,2.21],"西班牙":[40.46,-3.75],
+  "意大利":[41.87,12.57],"波兰":[51.92,19.15],"比利时":[50.50,4.47],
+  "丹麦":[56.26,9.50],"瑞典":[60.13,18.64],"爱尔兰":[53.14,-7.69],
+  "葡萄牙":[39.40,-8.22],"希腊":[39.07,21.82],"欧盟":[50.85,4.35],
+  "巴西":[-14.24,-51.93],"墨西哥":[23.63,-102.55],"哥伦比亚":[4.57,-74.30],
+  "智利":[-35.68,-71.54],"秘鲁":[-9.19,-75.02],"阿根廷":[-38.42,-63.62],
+  "古巴":[21.52,-77.78],"美国":[37.09,-95.71],"加拿大":[56.13,-106.35],
+  "俄罗斯":[61.52,105.32],"乌克兰":[48.38,31.17],"哈萨克斯坦":[48.02,66.92],
+  "乌兹别克斯坦":[41.38,64.59],"格鲁吉亚":[42.32,43.36],"亚美尼亚":[40.07,45.04],
+  "阿塞拜疆":[40.14,47.58],"白俄罗斯":[53.71,27.95],"澳大利亚":[-25.27,133.78],
+  "新西兰":[-40.90,174.89],"土耳其":[38.96,35.24],"伊朗":[32.43,53.69],
+  "以色列":[31.05,34.85],"中国香港":[22.32,114.17],"中国台湾":[23.70,120.96],
+  "突尼斯":[33.89,9.54],"多米尼加":[18.74,-70.16],"多米尼加共和国":[18.74,-70.16],
+  "多米尼克":[15.41,-61.37],"巴拿马":[8.54,-80.78],"哥斯达黎加":[9.75,-83.75],
+  "尼加拉瓜":[12.87,-85.21],"匈牙利":[47.16,19.50],"奥地利":[47.52,14.55],
+  "罗马尼亚":[45.94,24.97],"保加利亚":[42.73,25.49],"克罗地亚":[45.10,15.20],
+  "塞浦路斯":[35.13,33.43],"捷克":[49.82,15.47],"斯洛伐克":[48.67,19.70],
+  "斯洛文尼亚":[46.15,14.99],"爱沙尼亚":[58.60,25.01],"拉脱维亚":[56.88,24.60],
+  "立陶宛":[55.17,23.88],"瑞士":[46.82,8.23],"乌拉圭":[-32.52,-55.77],
+  "玻利维亚":[-16.29,-63.59],"吉布提":[11.83,42.59],"老挝":[19.86,102.50],
+  "中非共和国":[6.61,20.94],"中非":[6.61,20.94],"莱索托":[-29.61,28.23],
+  "刚果民主共和国":[-4.04,21.76],"博茨瓦纳":[-22.33,24.68],
+  "圣多美和普林西比":[0.19,6.61],"纳米比亚":[-22.96,18.49],
+  "斯里兰卡":[7.87,80.77],"吉尔吉斯斯坦":[41.20,74.77],
 };
 
 type ViewLevel = "global" | "country" | "city";
+
+/* ─── Create circle marker icon for Leaflet ─── */
+function createBubbleIcon(count: number, maxCount: number, color: string) {
+  const sz = Math.max(28, Math.min(64, 28 + (count / maxCount) * 36));
+  const fontSize = Math.max(10, sz / 4);
+  return L.divIcon({
+    className: "",
+    iconSize: [sz, sz],
+    iconAnchor: [sz / 2, sz / 2],
+    html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;"><span style="color:white;font-size:${fontSize}px;font-weight:bold">${count}</span></div>`,
+  });
+}
+
+function createCityIcon(count: number, maxCount: number, cityName: string) {
+  const sz = Math.max(24, Math.min(52, 24 + (count / maxCount) * 28));
+  const fontSize = Math.max(9, sz / 4.5);
+  return L.divIcon({
+    className: "",
+    iconSize: [sz, sz + 18],
+    iconAnchor: [sz / 2, sz / 2 + 9],
+    html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+      <div style="width:${sz}px;height:${sz}px;border-radius:50%;background:rgba(34,139,34,0.9);border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+        <span style="color:white;font-size:${fontSize}px;font-weight:bold">${count}</span>
+      </div>
+      <div style="margin-top:2px;background:rgba(0,0,0,0.75);color:white;padding:1px 6px;border-radius:4px;font-size:10px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;">${cityName}</div>
+    </div>`,
+  });
+}
+
+function createCompanyIcon(name: string, isChina: boolean) {
+  const color = isChina ? "rgba(34,139,34,0.9)" : "rgba(59,130,246,0.9)";
+  const shortName = name.replace(/\s*[\(（].*?[\)）]\s*/g, "").substring(0, 16);
+  return L.divIcon({
+    className: "",
+    iconSize: [28, 46],
+    iconAnchor: [14, 23],
+    html: `<div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+      <div style="width:28px;height:28px;border-radius:50%;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <div style="margin-top:1px;background:rgba(0,0,0,0.8);color:white;padding:1px 5px;border-radius:3px;font-size:9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;">${shortName}</div>
+    </div>`,
+  });
+}
 
 export default function MapPage() {
   const { data: countryStats } = trpc.company.countryStats.useQuery();
@@ -58,142 +115,127 @@ export default function MapPage() {
     { country: selectedCountry!, city: selectedCity! },
     { enabled: !!selectedCountry && !!selectedCity }
   );
-  const { data: countryCompanies, isLoading: countryCompaniesLoading } = trpc.company.byCountry.useQuery(
-    { country: selectedCountry! },
-    { enabled: !!selectedCountry && viewLevel === "country" && !selectedCity }
-  );
 
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  const clearMarkers = useCallback(() => {
-    markersRef.current.forEach(m => (m.map = null));
-    markersRef.current = [];
+  /* ─── Initialize Leaflet map ─── */
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    const map = L.map(mapContainerRef.current, {
+      center: [25, 45],
+      zoom: 3,
+      zoomControl: true,
+      attributionControl: true,
+      minZoom: 2,
+      maxZoom: 18,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const markersLayer = L.layerGroup().addTo(map);
+    markersLayerRef.current = markersLayer;
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markersLayerRef.current = null;
+    };
   }, []);
 
-  /* ─── Country-level bubbles (global view) ─── */
-  const showCountryBubbles = useCallback((map: google.maps.Map, stats: any[]) => {
+  /* ─── Clear markers helper ─── */
+  const clearMarkers = useCallback(() => {
+    if (markersLayerRef.current) markersLayerRef.current.clearLayers();
+  }, []);
+
+  /* ─── Show country bubbles (global view) ─── */
+  const showCountryBubbles = useCallback((stats: any[]) => {
     clearMarkers();
+    if (!markersLayerRef.current) return;
     const mx = Math.max(...stats.map((s: any) => s.count), 1);
     stats.forEach((s: any) => {
       const co = CC[s.country];
       if (!co) return;
-      const sz = Math.max(28, Math.min(64, 28 + (s.count / mx) * 36));
-      const el = document.createElement("div");
-      el.style.cssText = `width:${sz}px;height:${sz}px;border-radius:50%;background:oklch(0.55 0.18 250/0.85);border:2px solid white;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:transform 0.2s;font-family:system-ui;`;
-      el.innerHTML = `<span style="color:white;font-size:${Math.max(10, sz / 4)}px;font-weight:bold">${s.count}</span>`;
-      el.title = `${s.country}: ${s.count}家企业 (点击查看城市分布)`;
-      el.onmouseenter = () => { el.style.transform = "scale(1.15)"; };
-      el.onmouseleave = () => { el.style.transform = "scale(1)"; };
-      el.onclick = () => {
+      const icon = createBubbleIcon(s.count, mx, "rgba(59,130,246,0.85)");
+      const marker = L.marker(co, { icon }).addTo(markersLayerRef.current!);
+      marker.bindTooltip(`${s.country}: ${s.count}家企业`, { direction: "top", offset: [0, -10] });
+      marker.on("click", () => {
         setSelectedCountry(s.country);
         setSelectedCity(null);
         setViewLevel("country");
-        const center = CC[s.country];
-        if (center && mapRef.current) {
-          mapRef.current.setCenter(center);
-          mapRef.current.setZoom(5);
+        setSearchQuery("");
+        if (mapRef.current) {
+          mapRef.current.setView(co, 5, { animate: true });
         }
-      };
-      markersRef.current.push(new google.maps.marker.AdvancedMarkerElement({ map, position: co, content: el }));
+      });
     });
   }, [clearMarkers]);
 
-  /* ─── City-level pins (country view) ─── */
-  const showCityPins = useCallback((map: google.maps.Map, country: string) => {
+  /* ─── Show city pins (country view) ─── */
+  const showCityPins = useCallback((country: string) => {
     clearMarkers();
-    if (!cityStats) return;
+    if (!markersLayerRef.current || !cityStats) return;
     const countryCities = cityStats.filter((c: any) => c.country === country && c.latitude && c.longitude);
     if (countryCities.length === 0) return;
-
     const mx = Math.max(...countryCities.map((c: any) => c.count), 1);
     countryCities.forEach((c: any) => {
       const lat = parseFloat(c.latitude);
       const lng = parseFloat(c.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
-
-      const sz = Math.max(24, Math.min(52, 24 + (c.count / mx) * 28));
-      const el = document.createElement("div");
-      el.style.cssText = `display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.2s;font-family:system-ui;`;
-
-      const bubble = document.createElement("div");
-      bubble.style.cssText = `width:${sz}px;height:${sz}px;border-radius:50%;background:oklch(0.60 0.20 145/0.9);border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);`;
-      bubble.innerHTML = `<span style="color:white;font-size:${Math.max(9, sz / 4.5)}px;font-weight:bold">${c.count}</span>`;
-
-      const label = document.createElement("div");
-      label.style.cssText = `margin-top:2px;background:rgba(0,0,0,0.75);color:white;padding:1px 6px;border-radius:4px;font-size:10px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;`;
-      label.textContent = c.city;
-
-      el.appendChild(bubble);
-      el.appendChild(label);
-      el.title = `${c.city}: ${c.count}家企业`;
-      el.onmouseenter = () => { el.style.transform = "scale(1.15)"; };
-      el.onmouseleave = () => { el.style.transform = "scale(1)"; };
-      el.onclick = () => {
+      const icon = createCityIcon(c.count, mx, c.city || "未知");
+      const marker = L.marker([lat, lng], { icon }).addTo(markersLayerRef.current!);
+      marker.bindTooltip(`${c.city}: ${c.count}家企业`, { direction: "top", offset: [0, -10] });
+      marker.on("click", () => {
         setSelectedCity(c.city);
         setViewLevel("city");
+        setSearchQuery("");
         if (mapRef.current) {
-          mapRef.current.setCenter({ lat, lng });
-          mapRef.current.setZoom(10);
+          mapRef.current.setView([lat, lng], 10, { animate: true });
         }
-      };
-      markersRef.current.push(new google.maps.marker.AdvancedMarkerElement({ map, position: { lat, lng }, content: el }));
+      });
     });
   }, [clearMarkers, cityStats]);
 
-  /* ─── Individual company markers (city view) ─── */
-  const showCompanyMarkers = useCallback((map: google.maps.Map, comps: any[]) => {
+  /* ─── Show company markers (city view) ─── */
+  const showCompanyMarkers = useCallback((comps: any[]) => {
     clearMarkers();
+    if (!markersLayerRef.current) return;
     comps.forEach((c: any) => {
       const lat = parseFloat(c.latitude);
       const lng = parseFloat(c.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
-
-      // Add small random offset to prevent exact overlap
       const jitterLat = lat + (Math.random() - 0.5) * 0.01;
       const jitterLng = lng + (Math.random() - 0.5) * 0.01;
-
-      const el = document.createElement("div");
-      el.style.cssText = `display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform 0.2s;font-family:system-ui;`;
-
       const isChina = c.hasPurchasedFromChina === "是";
-      const pin = document.createElement("div");
-      pin.style.cssText = `width:28px;height:28px;border-radius:50%;background:${isChina ? 'oklch(0.55 0.20 145)' : 'oklch(0.55 0.18 250)'};border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);`;
-      pin.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
-
-      const label = document.createElement("div");
-      label.style.cssText = `margin-top:1px;background:rgba(0,0,0,0.8);color:white;padding:1px 5px;border-radius:3px;font-size:9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;`;
-      // Extract short name
-      const shortName = c.companyName.replace(/\s*[\(（].*?[\)）]\s*/g, '').substring(0, 20);
-      label.textContent = shortName;
-
-      el.appendChild(pin);
-      el.appendChild(label);
-      el.title = c.companyName;
-      el.onmouseenter = () => { el.style.transform = "scale(1.2)"; };
-      el.onmouseleave = () => { el.style.transform = "scale(1)"; };
-
-      markersRef.current.push(new google.maps.marker.AdvancedMarkerElement({ map, position: { lat: jitterLat, lng: jitterLng }, content: el }));
+      const icon = createCompanyIcon(c.companyName, isChina);
+      const marker = L.marker([jitterLat, jitterLng], { icon }).addTo(markersLayerRef.current!);
+      marker.bindPopup(`
+        <div style="min-width:200px;font-family:system-ui;">
+          <b style="font-size:13px;">${c.companyName}</b><br/>
+          <span style="color:#666;font-size:11px;">${c.coreRole || ""}</span><br/>
+          ${c.mainProducts ? `<span style="color:#888;font-size:10px;">${c.mainProducts.substring(0, 100)}</span><br/>` : ""}
+          ${isChina ? '<span style="color:green;font-size:11px;font-weight:bold;">✓ 已在中国采购</span>' : ""}
+        </div>
+      `);
     });
   }, [clearMarkers]);
-
-  /* ─── Map ready handler ─── */
-  const handleMapReady = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-    if (countryStats) showCountryBubbles(map, countryStats);
-  }, [countryStats, showCountryBubbles]);
 
   /* ─── Sync markers with view level changes ─── */
   useEffect(() => {
     if (!mapRef.current) return;
     if (viewLevel === "global" && countryStats) {
-      showCountryBubbles(mapRef.current, countryStats);
-      mapRef.current.setCenter({ lat: 25, lng: 45 });
-      mapRef.current.setZoom(3);
+      showCountryBubbles(countryStats);
+      mapRef.current.setView([25, 45], 3, { animate: true });
     } else if (viewLevel === "country" && selectedCountry && cityStats) {
-      showCityPins(mapRef.current, selectedCountry);
+      showCityPins(selectedCountry);
     } else if (viewLevel === "city" && cityCompanies) {
-      showCompanyMarkers(mapRef.current, cityCompanies);
+      showCompanyMarkers(cityCompanies);
     }
   }, [viewLevel, selectedCountry, selectedCity, countryStats, cityStats, cityCompanies, showCountryBubbles, showCityPins, showCompanyMarkers]);
 
@@ -202,17 +244,16 @@ export default function MapPage() {
     if (viewLevel === "city") {
       setSelectedCity(null);
       setViewLevel("country");
+      setSearchQuery("");
       if (mapRef.current && selectedCountry) {
         const center = CC[selectedCountry];
-        if (center) {
-          mapRef.current.setCenter(center);
-          mapRef.current.setZoom(5);
-        }
+        if (center) mapRef.current.setView(center, 5, { animate: true });
       }
     } else if (viewLevel === "country") {
       setSelectedCountry(null);
       setSelectedCity(null);
       setViewLevel("global");
+      setSearchQuery("");
     }
   }, [viewLevel, selectedCountry]);
 
@@ -241,7 +282,6 @@ export default function MapPage() {
     );
   }, [cityCompanies, searchQuery]);
 
-  /* ─── Summary stats ─── */
   const totalCountries = countryStats?.length || 0;
   const totalCompanies = countryStats?.reduce((s: number, c: any) => s + c.count, 0) || 0;
   const totalCities = cityStats?.length || 0;
@@ -302,14 +342,13 @@ export default function MapPage() {
         {/* Map */}
         <div className="lg:col-span-2">
           <Card className="overflow-hidden">
-            <MapView className="h-[600px]" initialCenter={{ lat: 25, lng: 45 }} initialZoom={3} onMapReady={handleMapReady} />
+            <div ref={mapContainerRef} style={{ height: "600px", width: "100%" }} />
           </Card>
         </div>
 
         {/* Sidebar */}
         <div className="lg:col-span-1">
           {viewLevel === "global" ? (
-            /* Global view - country list */
             <Card className="h-[600px] flex flex-col">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -317,12 +356,7 @@ export default function MapPage() {
                 </CardTitle>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="搜索国家..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
-                  />
+                  <Input placeholder="搜索国家..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-9" />
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden p-0">
@@ -331,21 +365,15 @@ export default function MapPage() {
                     {countryStats
                       ?.filter((s: any) => !searchQuery || s.country.toLowerCase().includes(searchQuery.toLowerCase()))
                       .map((s: any) => (
-                        <div
-                          key={s.country}
-                          className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        <div key={s.country} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                           onClick={() => {
                             setSelectedCountry(s.country);
                             setSelectedCity(null);
                             setViewLevel("country");
                             setSearchQuery("");
                             const center = CC[s.country];
-                            if (center && mapRef.current) {
-                              mapRef.current.setCenter(center);
-                              mapRef.current.setZoom(5);
-                            }
-                          }}
-                        >
+                            if (center && mapRef.current) mapRef.current.setView(center, 5, { animate: true });
+                          }}>
                           <div className="flex items-center gap-2 min-w-0">
                             <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <span className="text-sm font-medium truncate">{s.country}</span>
@@ -358,7 +386,6 @@ export default function MapPage() {
               </CardContent>
             </Card>
           ) : viewLevel === "country" ? (
-            /* Country view - city list */
             <Card className="h-[600px] flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -368,38 +395,26 @@ export default function MapPage() {
                   <Button variant="ghost" size="icon" onClick={goBack}><X className="h-4 w-4" /></Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  共 {countryCitiesList.length} 个城市，
-                  {countryCitiesList.reduce((s: number, c: any) => s + c.count, 0)} 家企业
+                  共 {countryCitiesList.length} 个城市，{countryCitiesList.reduce((s: number, c: any) => s + c.count, 0)} 家企业
                 </p>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="搜索城市..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
-                  />
+                  <Input placeholder="搜索城市..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-9" />
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden p-0">
                 <ScrollArea className="h-full px-4 pb-4">
                   <div className="space-y-1">
                     {filteredCitiesList.map((c: any, i: number) => (
-                      <div
-                        key={`${c.city}-${i}`}
-                        className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                      <div key={`${c.city}-${i}`} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                         onClick={() => {
                           setSelectedCity(c.city);
                           setViewLevel("city");
                           setSearchQuery("");
                           const lat = parseFloat(c.latitude);
                           const lng = parseFloat(c.longitude);
-                          if (!isNaN(lat) && !isNaN(lng) && mapRef.current) {
-                            mapRef.current.setCenter({ lat, lng });
-                            mapRef.current.setZoom(10);
-                          }
-                        }}
-                      >
+                          if (!isNaN(lat) && !isNaN(lng) && mapRef.current) mapRef.current.setView([lat, lng], 10, { animate: true });
+                        }}>
                         <div className="flex items-center gap-2 min-w-0">
                           <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
                           <span className="text-sm font-medium truncate">{c.city || "未知城市"}</span>
@@ -408,16 +423,13 @@ export default function MapPage() {
                       </div>
                     ))}
                     {filteredCitiesList.length === 0 && (
-                      <div className="text-center text-muted-foreground py-8">
-                        <p className="text-sm">暂无城市数据</p>
-                      </div>
+                      <div className="text-center text-muted-foreground py-8"><p className="text-sm">暂无城市数据</p></div>
                     )}
                   </div>
                 </ScrollArea>
               </CardContent>
             </Card>
           ) : (
-            /* City view - company list */
             <Card className="h-[600px] flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -433,12 +445,7 @@ export default function MapPage() {
                 </div>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="搜索企业..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
-                  />
+                  <Input placeholder="搜索企业..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-9" />
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden p-0">
@@ -458,21 +465,16 @@ export default function MapPage() {
                               </div>
                               {c.mainProducts && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.mainProducts}</p>}
                             </div>
-                            <a
-                              href={`https://www.google.com/maps/search/${encodeURIComponent(c.companyName + " " + selectedCity + " " + selectedCountry)}`}
+                            <a href={`https://www.google.com/maps/search/${encodeURIComponent(c.companyName + " " + selectedCity + " " + selectedCountry)}`}
                               target="_blank" rel="noopener noreferrer"
-                              className="shrink-0 p-1.5 rounded-md hover:bg-primary/10 text-primary"
-                              title="在 Google Maps 中精确定位"
-                            >
+                              className="shrink-0 p-1.5 rounded-md hover:bg-primary/10 text-primary" title="在 Google Maps 中精确定位">
                               <ExternalLink className="h-4 w-4" />
                             </a>
                           </div>
                         </div>
                       ))}
                       {filteredCompanies.length === 0 && !companiesLoading && (
-                        <div className="text-center text-muted-foreground py-8">
-                          <p className="text-sm">暂无企业数据</p>
-                        </div>
+                        <div className="text-center text-muted-foreground py-8"><p className="text-sm">暂无企业数据</p></div>
                       )}
                     </div>
                   )}
