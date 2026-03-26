@@ -32,6 +32,9 @@ export const appRouter = router({
   company: router({
     stats: protectedProcedure.query(() => db.getCompanyStats()),
     countryStats: protectedProcedure.query(() => db.getCountryStats()),
+    cityStats: protectedProcedure.query(() => db.getCityStats()),
+    byCity: protectedProcedure.input(z.object({ country: z.string(), city: z.string() })).query(({ input }) => db.getCompaniesByCity(input.country, input.city)),
+    mapCompanies: protectedProcedure.query(() => db.getMapCompanies()),
     search: protectedProcedure.input(z.object({
       query: z.string().optional(), continent: z.string().optional(), country: z.string().optional(),
       role: z.string().optional(), chinaOnly: z.boolean().optional(), page: z.number().optional(), pageSize: z.number().optional(),

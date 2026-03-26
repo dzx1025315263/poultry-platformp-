@@ -1,4 +1,4 @@
-import { eq, ne, and, like, or, sql, desc, asc, count, isNull } from "drizzle-orm";
+import { eq, ne, and, like, or, sql, desc, asc, count, isNull, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, companies, favorites, teams, teamMembers,
@@ -66,6 +66,57 @@ export async function getCountryStats() {
   if (!db) return [];
   return db.select({ country: companies.country, continent: companies.continent, count: count() })
     .from(companies).groupBy(companies.country, companies.continent).orderBy(desc(count()));
+}
+
+export async function getCityStats() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    country: companies.country,
+    city: companies.city,
+    latitude: companies.latitude,
+    longitude: companies.longitude,
+    count: count()
+  }).from(companies)
+    .where(and(isNotNull(companies.latitude), isNotNull(companies.city)))
+    .groupBy(companies.country, companies.city, companies.latitude, companies.longitude)
+    .orderBy(desc(count()));
+}
+
+export async function getCompaniesByCity(country: string, city: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: companies.id,
+    companyName: companies.companyName,
+    country: companies.country,
+    city: companies.city,
+    coreRole: companies.coreRole,
+    mainProducts: companies.mainProducts,
+    hasPurchasedFromChina: companies.hasPurchasedFromChina,
+    latitude: companies.latitude,
+    longitude: companies.longitude,
+  }).from(companies)
+    .where(and(eq(companies.country, country), eq(companies.city, city)))
+    .orderBy(asc(companies.id));
+}
+
+export async function getMapCompanies() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: companies.id,
+    companyName: companies.companyName,
+    country: companies.country,
+    city: companies.city,
+    latitude: companies.latitude,
+    longitude: companies.longitude,
+    coreRole: companies.coreRole,
+    mainProducts: companies.mainProducts,
+    hasPurchasedFromChina: companies.hasPurchasedFromChina,
+  }).from(companies)
+    .where(isNotNull(companies.latitude))
+    .orderBy(asc(companies.country), asc(companies.city));
 }
 
 export async function searchCompanies(opts: {
