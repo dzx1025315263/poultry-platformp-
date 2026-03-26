@@ -1,10 +1,11 @@
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, X, MapPin, Building2, ChevronLeft, Search, Globe, Navigation, Users } from "lucide-react";
+import { ExternalLink, X, MapPin, Building2, ChevronLeft, Search, Globe, Navigation, Users, Lock, MessageCircle } from "lucide-react";
 import { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -58,6 +59,75 @@ const CC: Record<string, [number, number]> = {
 
 type ViewLevel = "global" | "country" | "city";
 
+/* ─── Blur a company name for guests ─── */
+function blurName(name: string): string {
+  if (!name) return "••••••••";
+  // Show first 2 chars, blur the rest
+  const visible = name.substring(0, 2);
+  const blurred = name.substring(2).replace(/[A-Za-z\u4e00-\u9fff]/g, "•");
+  return visible + blurred;
+}
+
+/* ─── Contact Us CTA Modal ─── */
+function ContactCTA({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-background rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-white text-center">
+          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
+            <MessageCircle className="h-8 w-8" />
+          </div>
+          <h2 className="text-xl font-bold">获取完整企业数据</h2>
+          <p className="text-blue-100 mt-2 text-sm">
+            我们拥有全球 2,300+ 家禽业企业的详细信息，包括企业名称、联系方式、业务详情等
+          </p>
+        </div>
+        <div className="px-6 py-6 space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                <Globe className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">覆盖 111 个国家和地区</p>
+                <p className="text-xs text-muted-foreground mt-0.5">涵盖全球主要禽肉生产和消费市场</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0 mt-0.5">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">精确到城市级别的企业定位</p>
+                <p className="text-xs text-muted-foreground mt-0.5">377 个城市，每家企业均有详细档案</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+                <Users className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">企业联系人与采购历史</p>
+                <p className="text-xs text-muted-foreground mt-0.5">了解哪些企业已在中国采购，精准对接</p>
+              </div>
+            </div>
+          </div>
+          <div className="pt-2 space-y-2">
+            <Button className="w-full h-11 text-base gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700" onClick={onClose}>
+              <MessageCircle className="h-4 w-4" />
+              联系我们获取完整数据
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              Universal Gourmand Group — 全球禽业数据协作平台
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Create circle marker icon for Leaflet ─── */
 function createBubbleIcon(count: number, maxCount: number, color: string) {
   const sz = Math.max(28, Math.min(64, 28 + (count / maxCount) * 36));
@@ -86,9 +156,8 @@ function createCityIcon(count: number, maxCount: number, cityName: string) {
   });
 }
 
-function createCompanyIcon(name: string, isChina: boolean) {
+function createCompanyIcon(label: string, isChina: boolean) {
   const color = isChina ? "rgba(34,139,34,0.9)" : "rgba(59,130,246,0.9)";
-  const shortName = name.replace(/\s*[\(（].*?[\)）]\s*/g, "").substring(0, 16);
   return L.divIcon({
     className: "leaflet-marker-custom",
     iconSize: [28, 46],
@@ -97,14 +166,12 @@ function createCompanyIcon(name: string, isChina: boolean) {
       <div style="width:28px;height:28px;border-radius:50%;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </div>
-      <div style="margin-top:1px;background:rgba(0,0,0,0.8);color:white;padding:1px 5px;border-radius:3px;font-size:9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;">${shortName}</div>
+      <div style="margin-top:1px;background:rgba(0,0,0,0.8);color:white;padding:1px 5px;border-radius:3px;font-size:9px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;">${label}</div>
     </div>`,
   });
 }
 
 /* ─── Isolated Leaflet Map Component ─── */
-/* This component manages Leaflet entirely outside React's virtual DOM to prevent
-   the "removeChild" error caused by Leaflet and React both manipulating the same DOM nodes. */
 function LeafletMap({
   onCountryClick,
   onCityClick,
@@ -114,6 +181,7 @@ function LeafletMap({
   viewLevel,
   selectedCountry,
   selectedCity,
+  isGuest,
 }: {
   onCountryClick: (country: string) => void;
   onCityClick: (city: string, lat: number, lng: number) => void;
@@ -123,48 +191,31 @@ function LeafletMap({
   viewLevel: ViewLevel;
   selectedCountry: string | null;
   selectedCity: string | null;
+  isGuest: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  // Initialize map once
   useEffect(() => {
-    if (!containerRef.current) return;
-    // Prevent double init
-    if (mapRef.current) return;
-
+    if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
-      center: [25, 45],
-      zoom: 3,
-      zoomControl: true,
-      attributionControl: true,
-      minZoom: 2,
-      maxZoom: 18,
+      center: [25, 45], zoom: 3, zoomControl: true, attributionControl: true, minZoom: 2, maxZoom: 18,
     });
-
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       maxZoom: 19,
     }).addTo(map);
-
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
     mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; markersLayerRef.current = null; };
+  }, []);
 
-    return () => {
-      map.remove();
-      mapRef.current = null;
-      markersLayerRef.current = null;
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Update markers when data or view changes
   useEffect(() => {
     const map = mapRef.current;
     const layer = markersLayerRef.current;
     if (!map || !layer) return;
-
     layer.clearLayers();
 
     if (viewLevel === "global" && countryStats) {
@@ -182,19 +233,19 @@ function LeafletMap({
       const countryCities = cityStats.filter((c: any) => c.country === selectedCountry && c.latitude && c.longitude);
       if (countryCities.length > 0) {
         const mx = Math.max(...countryCities.map((c: any) => c.count), 1);
-        const bounds: L.LatLngBoundsExpression = [];
+        const bounds: [number, number][] = [];
         countryCities.forEach((c: any) => {
           const lat = parseFloat(c.latitude);
           const lng = parseFloat(c.longitude);
           if (isNaN(lat) || isNaN(lng)) return;
-          (bounds as [number, number][]).push([lat, lng]);
+          bounds.push([lat, lng]);
           const icon = createCityIcon(c.count, mx, c.city || "未知");
           const marker = L.marker([lat, lng], { icon }).addTo(layer);
           marker.bindTooltip(`${c.city}: ${c.count}家企业`, { direction: "top", offset: [0, -10] });
           marker.on("click", () => onCityClick(c.city, lat, lng));
         });
-        if ((bounds as [number, number][]).length > 0) {
-          try { map.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [40, 40], maxZoom: 8 }); } catch {}
+        if (bounds.length > 0) {
+          try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 8 }); } catch {}
         }
       } else {
         const center = CC[selectedCountry];
@@ -210,28 +261,43 @@ function LeafletMap({
         const jitterLng = lng + (Math.random() - 0.5) * 0.01;
         bounds.push([jitterLat, jitterLng]);
         const isChina = c.hasPurchasedFromChina === "是";
-        const icon = createCompanyIcon(c.companyName, isChina);
+        // For guests, show role instead of company name on map markers
+        const markerLabel = isGuest ? (c.coreRole || "企业") : c.companyName?.replace(/\s*[\(（].*?[\)）]\s*/g, "").substring(0, 16);
+        const icon = createCompanyIcon(markerLabel, isChina);
         const marker = L.marker([jitterLat, jitterLng], { icon }).addTo(layer);
-        marker.bindPopup(`
-          <div style="min-width:200px;font-family:system-ui;">
-            <b style="font-size:13px;">${c.companyName}</b><br/>
-            <span style="color:#666;font-size:11px;">${c.coreRole || ""}</span><br/>
-            ${c.mainProducts ? `<span style="color:#888;font-size:10px;">${c.mainProducts.substring(0, 100)}</span>` : ""}
-          </div>
-        `);
+        // Popup: guests see role + products, logged-in see full details
+        if (isGuest) {
+          marker.bindPopup(`
+            <div style="min-width:200px;font-family:system-ui;">
+              <b style="font-size:13px;color:#999;">企业名称仅对会员可见</b><br/>
+              <span style="color:#333;font-size:12px;">${c.coreRole || "禽业企业"}</span><br/>
+              <span style="font-size:11px;color:#666;">${c.mainProducts || ""}</span>
+            </div>
+          `);
+        } else {
+          marker.bindPopup(`
+            <div style="min-width:200px;font-family:system-ui;">
+              <b style="font-size:13px;">${c.companyName}</b><br/>
+              <span style="color:#666;font-size:11px;">${c.coreRole || ""}</span><br/>
+              <span style="font-size:11px;color:#888;">${c.mainProducts || ""}</span>
+            </div>
+          `);
+        }
       });
       if (bounds.length > 0) {
         try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 }); } catch {}
       }
     }
-  }, [viewLevel, selectedCountry, selectedCity, countryStats, cityStats, cityCompanies, onCountryClick, onCityClick]);
+  }, [viewLevel, selectedCountry, selectedCity, countryStats, cityStats, cityCompanies, onCountryClick, onCityClick, isGuest]);
 
-  /* The key fix: this div is never re-rendered by React because it has no children
-     managed by React. Leaflet exclusively owns the DOM inside this container. */
   return <div ref={containerRef} style={{ height: "600px", width: "100%" }} />;
 }
 
 export default function MapPage() {
+  const { user } = useAuth();
+  const isGuest = !user;
+  const [showContactCTA, setShowContactCTA] = useState(false);
+
   const { data: countryStats } = trpc.company.countryStats.useQuery();
   const { data: cityStats } = trpc.company.cityStats.useQuery();
 
@@ -245,7 +311,6 @@ export default function MapPage() {
     { enabled: !!selectedCountry && !!selectedCity }
   );
 
-  /* ─── Map callbacks (stable references) ─── */
   const handleCountryClick = useCallback((country: string) => {
     setSelectedCountry(country);
     setSelectedCity(null);
@@ -259,7 +324,6 @@ export default function MapPage() {
     setSearchQuery("");
   }, []);
 
-  /* ─── Navigation ─── */
   const goBack = useCallback(() => {
     if (viewLevel === "city") {
       setSelectedCity(null);
@@ -273,12 +337,9 @@ export default function MapPage() {
     }
   }, [viewLevel]);
 
-  /* ─── Stats for sidebar ─── */
   const countryCitiesList = useMemo(() => {
     if (!cityStats || !selectedCountry) return [];
-    return cityStats
-      .filter((c: any) => c.country === selectedCountry)
-      .sort((a: any, b: any) => b.count - a.count);
+    return cityStats.filter((c: any) => c.country === selectedCountry).sort((a: any, b: any) => b.count - a.count);
   }, [cityStats, selectedCountry]);
 
   const filteredCitiesList = useMemo(() => {
@@ -292,11 +353,11 @@ export default function MapPage() {
     if (!searchQuery.trim()) return cityCompanies;
     const q = searchQuery.toLowerCase();
     return cityCompanies.filter((c: any) =>
-      c.companyName?.toLowerCase().includes(q) ||
       c.coreRole?.toLowerCase().includes(q) ||
-      c.mainProducts?.toLowerCase().includes(q)
+      c.mainProducts?.toLowerCase().includes(q) ||
+      (!isGuest && c.companyName?.toLowerCase().includes(q))
     );
-  }, [cityCompanies, searchQuery]);
+  }, [cityCompanies, searchQuery, isGuest]);
 
   const filteredCountryStats = useMemo(() => {
     if (!countryStats) return [];
@@ -311,6 +372,8 @@ export default function MapPage() {
 
   return (
     <div className="space-y-4">
+      <ContactCTA open={showContactCTA} onClose={() => setShowContactCTA(false)} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -321,12 +384,25 @@ export default function MapPage() {
             {viewLevel === "city" && `${selectedCountry} · ${selectedCity} — 企业精确定位`}
           </p>
         </div>
-        {viewLevel !== "global" && (
-          <Button variant="outline" size="sm" onClick={goBack} className="gap-1.5">
-            <ChevronLeft className="h-4 w-4" />
-            {viewLevel === "city" ? "返回城市列表" : "返回全球视图"}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isGuest && (
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              onClick={() => setShowContactCTA(true)}
+            >
+              <MessageCircle className="h-4 w-4" />
+              联系我们
+            </Button>
+          )}
+          {viewLevel !== "global" && (
+            <Button variant="outline" size="sm" onClick={goBack} className="gap-1.5">
+              <ChevronLeft className="h-4 w-4" />
+              {viewLevel === "city" ? "返回城市列表" : "返回全球视图"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats bar */}
@@ -360,9 +436,23 @@ export default function MapPage() {
         </Card>
       </div>
 
+      {/* Guest banner */}
+      {isGuest && viewLevel === "city" && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4 text-blue-600" />
+            <span className="text-sm text-blue-800 dark:text-blue-200">
+              企业名称和详细信息仅对会员可见，您可以查看企业类型和主营产品
+            </span>
+          </div>
+          <Button size="sm" variant="outline" className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100" onClick={() => setShowContactCTA(true)}>
+            了解更多
+          </Button>
+        </div>
+      )}
+
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Map - isolated Leaflet component */}
         <div className="lg:col-span-2">
           <Card className="overflow-hidden">
             <LeafletMap
@@ -374,6 +464,7 @@ export default function MapPage() {
               viewLevel={viewLevel}
               selectedCountry={selectedCountry}
               selectedCity={selectedCity}
+              isGuest={isGuest}
             />
           </Card>
         </div>
@@ -465,7 +556,7 @@ export default function MapPage() {
                 </div>
                 <div className="relative mt-2">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="搜索企业..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-9" />
+                  <Input placeholder={isGuest ? "搜索企业类型或产品..." : "搜索企业..."} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 h-9" />
                 </div>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden p-0">
@@ -478,21 +569,71 @@ export default function MapPage() {
                         <div key={c.id} className="p-3 rounded-lg border hover:bg-muted/50 transition-colors">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-sm truncate">{c.companyName}</p>
+                              {/* Company name: blurred for guests */}
+                              {isGuest ? (
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-medium text-sm truncate text-muted-foreground select-none" style={{ filter: "blur(4px)", WebkitUserSelect: "none" }}>
+                                    {c.companyName}
+                                  </p>
+                                  <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                                </div>
+                              ) : (
+                                <p className="font-medium text-sm truncate">{c.companyName}</p>
+                              )}
+                              {/* Core role & tags: always visible */}
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 {c.coreRole && <Badge variant="secondary" className="text-xs">{c.coreRole}</Badge>}
                                 {c.hasPurchasedFromChina === "是" && <Badge className="text-xs bg-green-600">已在中国采购</Badge>}
                               </div>
+                              {/* Main products: always visible */}
                               {c.mainProducts && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.mainProducts}</p>}
+                              {/* Company profile: blurred for guests */}
+                              {c.companyProfile && (
+                                isGuest ? (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1 select-none" style={{ filter: "blur(4px)", WebkitUserSelect: "none" }}>
+                                    {c.companyProfile}
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.companyProfile}</p>
+                                )
+                              )}
                             </div>
-                            <a href={`https://www.google.com/maps/search/${encodeURIComponent(c.companyName + " " + selectedCity + " " + selectedCountry)}`}
-                              target="_blank" rel="noopener noreferrer"
-                              className="shrink-0 p-1.5 rounded-md hover:bg-primary/10 text-primary" title="在 Google Maps 中精确定位">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
+                            {isGuest ? (
+                              <button
+                                onClick={() => setShowContactCTA(true)}
+                                className="shrink-0 p-1.5 rounded-md hover:bg-primary/10 text-primary" title="联系我们查看详情">
+                                <MessageCircle className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <a href={`https://www.google.com/maps/search/${encodeURIComponent(c.companyName + " " + selectedCity + " " + selectedCountry)}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="shrink-0 p-1.5 rounded-md hover:bg-primary/10 text-primary" title="在 Google Maps 中精确定位">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            )}
                           </div>
                         </div>
                       ))}
+                      {/* Guest CTA at bottom of list */}
+                      {isGuest && filteredCompanies.length > 0 && (
+                        <div className="mt-4 p-4 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800 text-center">
+                          <Lock className="h-5 w-5 text-blue-600 mx-auto mb-2" />
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            查看全部 {filteredCompanies.length} 家企业的完整信息
+                          </p>
+                          <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                            包括企业名称、联系方式、业务详情等
+                          </p>
+                          <Button
+                            size="sm"
+                            className="mt-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                            onClick={() => setShowContactCTA(true)}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
+                            联系我们
+                          </Button>
+                        </div>
+                      )}
                       {filteredCompanies.length === 0 && !companiesLoading && (
                         <div className="text-center text-muted-foreground py-8"><p className="text-sm">暂无企业数据</p></div>
                       )}
