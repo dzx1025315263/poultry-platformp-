@@ -483,3 +483,60 @@ export const regionCompanyProfiles = mysqlTable("region_company_profiles", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+// ==================== V4.0: Market Insights 市场洞察首页 ====================
+
+// 周度行业头条
+export const weeklyHeadlines = mysqlTable("weekly_headlines", {
+  id: int("id").autoincrement().primaryKey(),
+  week: varchar("week", { length: 10 }).notNull(),                 // e.g. '2026-W13'
+  title: varchar("title", { length: 500 }).notNull(),
+  summary: text("summary"),
+  impactLevel: mysqlEnum("impact_level", ["high", "medium", "low"]).default("medium"),
+  category: varchar("category", { length: 100 }),                   // trade/disease/policy/market/supply
+  source: varchar("source", { length: 200 }),
+  publishedAt: timestamp("published_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// 价格快照（6大产区比较）
+export const priceSnapshots = mysqlTable("price_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  week: varchar("week", { length: 10 }).notNull(),
+  region: varchar("region", { length: 100 }).notNull(),
+  product: varchar("product", { length: 100 }).notNull(),
+  price: decimal("price", { precision: 10, scale: 2 }),
+  currency: varchar("currency", { length: 10 }).default("USD"),
+  unit: varchar("unit", { length: 50 }).default("per kg"),
+  changePct: decimal("change_pct", { precision: 5, scale: 2 }),
+  changeDirection: mysqlEnum("change_direction", ["up", "down", "stable"]).default("stable"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// 风险预警
+export const riskAlerts = mysqlTable("risk_alerts", {
+  id: int("id").autoincrement().primaryKey(),
+  week: varchar("week", { length: 10 }).notNull(),
+  riskType: mysqlEnum("risk_type", ["disease", "trade_policy", "exchange_rate", "supply_chain", "weather"]).notNull(),
+  severity: mysqlEnum("severity", ["critical", "high", "medium", "low"]).default("medium"),
+  title: varchar("title", { length: 300 }).notNull(),
+  description: text("description"),
+  affectedRegions: text("affected_regions"),                        // comma-separated
+  status: mysqlEnum("status", ["active", "monitoring", "resolved"]).default("active"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// 深度分析文章
+export const analysisArticles = mysqlTable("analysis_articles", {
+  id: int("id").autoincrement().primaryKey(),
+  week: varchar("week", { length: 10 }).notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  subtitle: varchar("subtitle", { length: 300 }),
+  content: text("content"),                                         // Markdown format
+  coverImage: varchar("cover_image", { length: 500 }),
+  author: varchar("author", { length: 100 }).default("UGG Research Team"),
+  readingTime: int("reading_time").default(5),
+  tags: varchar("tags", { length: 300 }),                           // comma-separated
+  publishedAt: timestamp("published_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

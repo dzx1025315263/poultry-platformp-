@@ -29,6 +29,7 @@ const EmailAutomationPage = lazy(() => import("./pages/EmailAutomationPage"));
 const TodoPage = lazy(() => import("./pages/TodoPage"));
 const WeeklyReportPage = lazy(() => import("./pages/WeeklyReportPage"));
 const ProductionRegionsPage = lazy(() => import("./pages/ProductionRegionsPage"));
+const MarketInsightsPage = lazy(() => import("./pages/MarketInsightsPage"));
 const LoginPage = lazy(() => import("./components/LoginPage"));
 
 function PageLoader() {
@@ -44,12 +45,14 @@ function Router() {
     <DashboardLayout>
       <Suspense fallback={<PageLoader />}>
         <Switch>
-          <Route path="/" component={Home} />
+          <Route path="/" component={MarketInsightsPage} />
+          <Route path="/market-insights" component={MarketInsightsPage} />
+          <Route path="/dashboard" component={Home} />
           <Route path="/map" component={MapPage} />
           <Route path="/regions" component={RegionsPage} />
           <Route path="/regions/:continent" component={RegionDetailPage} />
           <Route path="/search" component={SearchPage} />
-          <Route path="/insights" component={InsightsPage} />
+
           <Route path="/report" component={ReportPage} />
           <Route path="/favorites" component={FavoritesPage} />
           <Route path="/teams" component={TeamsPage} />

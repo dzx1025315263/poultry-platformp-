@@ -40,11 +40,11 @@ const menuGroups: MenuGroup[] = [
   {
     title: "数据浏览",
     items: [
-      { icon: LayoutDashboard, label: "数据概览", path: "/" },
+      { icon: TrendingUp, label: "市场洞察", path: "/" },
+      { icon: LayoutDashboard, label: "数据概览", path: "/dashboard", guestHidden: true },
       { icon: Map, label: "企业地图", path: "/map" },
       { icon: Globe, label: "地区导航", path: "/regions" },
       { icon: Search, label: "全局搜索", path: "/search" },
-      { icon: TrendingUp, label: "市场洞察", path: "/insights" },
       { icon: FileText, label: "报告全文", path: "/report" },
       { icon: BarChart3, label: "贸易数据", path: "/trade" },
       { icon: Factory, label: "主产区分析", path: "/production-regions" },

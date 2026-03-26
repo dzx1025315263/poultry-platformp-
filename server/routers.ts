@@ -832,6 +832,21 @@ export const appRouter = router({
     companyProfiles: protectedProcedure.input(z.object({ regionCode: z.string() }))
       .query(({ input }) => db.getRegionCompanyProfiles(input.regionCode)),
   }),
+
+  // V4.0: Market Insights 市场洞察（公开页面，访客可访问）
+  marketInsights: router({
+    dashboard: publicProcedure.query(() => db.getMarketInsightsDashboard()),
+    headlines: publicProcedure.input(z.object({ week: z.string().optional(), limit: z.number().optional() }).optional())
+      .query(({ input }) => db.getWeeklyHeadlines(input?.week, input?.limit)),
+    prices: publicProcedure.input(z.object({ week: z.string().optional() }).optional())
+      .query(({ input }) => db.getPriceSnapshots(input?.week)),
+    risks: publicProcedure.input(z.object({ week: z.string().optional(), limit: z.number().optional() }).optional())
+      .query(({ input }) => db.getRiskAlerts(input?.week, input?.limit)),
+    articles: publicProcedure.input(z.object({ week: z.string().optional(), limit: z.number().optional() }).optional())
+      .query(({ input }) => db.getAnalysisArticles(input?.week, input?.limit)),
+    articleById: publicProcedure.input(z.object({ id: z.number() }))
+      .query(({ input }) => db.getAnalysisArticleById(input.id)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

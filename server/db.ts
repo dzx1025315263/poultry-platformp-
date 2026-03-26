@@ -8,7 +8,8 @@ import {
   aiRecommendExclusions, todoItems, emailBatchJobs, weeklyMarketReports,
   teamActivities, companyChangeHistory,
   productionRegions, regionMarketPrices, regionDiseaseAlerts, regionIndustryNews,
-  regionSubAreaPrices, regionFeedPrices, regionDiseaseLibrary, regionPolicies, regionCompanyProfiles
+  regionSubAreaPrices, regionFeedPrices, regionDiseaseLibrary, regionPolicies, regionCompanyProfiles,
+  weeklyHeadlines, priceSnapshots, riskAlerts, analysisArticles
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1162,4 +1163,122 @@ export async function getRegionCompanyProfiles(regionCode: string) {
   }).from(regionCompanyProfiles)
     .where(eq(regionCompanyProfiles.regionCode, regionCode))
     .orderBy(asc(regionCompanyProfiles.companyName));
+}
+
+
+// ==================== V4.0: Market Insights 市场洞察 ====================
+
+// 获取当前周标识
+export function getCurrentWeekLabel(): string {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNum = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7);
+  return `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+// 获取最新一期头条（按周）
+export async function getWeeklyHeadlines(week?: string, limit = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  if (week) {
+    return db.select().from(weeklyHeadlines)
+      .where(eq(weeklyHeadlines.week, week))
+      .orderBy(desc(weeklyHeadlines.publishedAt))
+      .limit(limit);
+  }
+  // 获取最新一周的头条
+  const latestWeek = await db.select({ week: weeklyHeadlines.week })
+    .from(weeklyHeadlines)
+    .orderBy(desc(weeklyHeadlines.publishedAt))
+    .limit(1);
+  if (latestWeek.length === 0) return [];
+  return db.select().from(weeklyHeadlines)
+    .where(eq(weeklyHeadlines.week, latestWeek[0].week))
+    .orderBy(desc(weeklyHeadlines.publishedAt))
+    .limit(limit);
+}
+
+// 获取价格快照
+export async function getPriceSnapshots(week?: string) {
+  const db = await getDb();
+  if (!db) return [];
+  if (week) {
+    return db.select().from(priceSnapshots)
+      .where(eq(priceSnapshots.week, week))
+      .orderBy(asc(priceSnapshots.region));
+  }
+  const latestWeek = await db.select({ week: priceSnapshots.week })
+    .from(priceSnapshots)
+    .orderBy(desc(priceSnapshots.createdAt))
+    .limit(1);
+  if (latestWeek.length === 0) return [];
+  return db.select().from(priceSnapshots)
+    .where(eq(priceSnapshots.week, latestWeek[0].week))
+    .orderBy(asc(priceSnapshots.region));
+}
+
+// 获取风险预警
+export async function getRiskAlerts(week?: string, limit = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [];
+  if (week) {
+    conditions.push(eq(riskAlerts.week, week));
+  }
+  // 默认只显示 active 和 monitoring 的预警
+  conditions.push(or(eq(riskAlerts.status, 'active'), eq(riskAlerts.status, 'monitoring'))!);
+  return db.select().from(riskAlerts)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(riskAlerts.createdAt))
+    .limit(limit);
+}
+
+// 获取深度分析文章
+export async function getAnalysisArticles(week?: string, limit = 5) {
+  const db = await getDb();
+  if (!db) return [];
+  if (week) {
+    return db.select().from(analysisArticles)
+      .where(eq(analysisArticles.week, week))
+      .orderBy(desc(analysisArticles.publishedAt))
+      .limit(limit);
+  }
+  return db.select().from(analysisArticles)
+    .orderBy(desc(analysisArticles.publishedAt))
+    .limit(limit);
+}
+
+// 获取单篇分析文章
+export async function getAnalysisArticleById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(analysisArticles)
+    .where(eq(analysisArticles.id, id))
+    .limit(1);
+  return result[0] || null;
+}
+
+// 获取 Market Insights 首页聚合数据
+export async function getMarketInsightsDashboard() {
+  const db = await getDb();
+  if (!db) return { headlines: [], prices: [], risks: [], articles: [], week: '', stats: null };
+  
+  // 获取最新周标识
+  const latestHeadline = await db.select({ week: weeklyHeadlines.week })
+    .from(weeklyHeadlines)
+    .orderBy(desc(weeklyHeadlines.publishedAt))
+    .limit(1);
+  
+  const week = latestHeadline.length > 0 ? latestHeadline[0].week : getCurrentWeekLabel();
+  
+  // 并行获取所有数据
+  const [headlines, prices, risks, articles, companyStats] = await Promise.all([
+    getWeeklyHeadlines(week),
+    getPriceSnapshots(week),
+    getRiskAlerts(undefined, 10),
+    getAnalysisArticles(undefined, 3),
+    getCompanyStats(),
+  ]);
+  
+  return { headlines, prices, risks, articles, week, stats: companyStats };
 }
