@@ -30,6 +30,7 @@ const TodoPage = lazy(() => import("./pages/TodoPage"));
 const WeeklyReportPage = lazy(() => import("./pages/WeeklyReportPage"));
 const ProductionRegionsPage = lazy(() => import("./pages/ProductionRegionsPage"));
 const MarketInsightsPage = lazy(() => import("./pages/MarketInsightsPage"));
+const PublicWeeklyReportPage = lazy(() => import("./pages/PublicWeeklyReportPage"));
 const LoginPage = lazy(() => import("./components/LoginPage"));
 
 function PageLoader() {
@@ -47,6 +48,7 @@ function Router() {
         <Switch>
           <Route path="/" component={MarketInsightsPage} />
           <Route path="/market-insights" component={MarketInsightsPage} />
+          <Route path="/weekly-reports" component={PublicWeeklyReportPage} />
           <Route path="/dashboard" component={Home} />
           <Route path="/map" component={MapPage} />
           <Route path="/regions" component={RegionsPage} />

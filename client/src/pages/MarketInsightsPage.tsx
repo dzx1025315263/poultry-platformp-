@@ -508,7 +508,7 @@ export default function MarketInsightsPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow cursor-pointer group" onClick={() => navigate("/weekly-report")}>
+        <Card className="hover:shadow-md transition-shadow cursor-pointer group" onClick={() => navigate("/weekly-reports")}>
           <CardContent className="pt-5 pb-4">
             <div className="flex items-center gap-3 mb-2">
               <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">

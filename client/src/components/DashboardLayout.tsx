@@ -48,7 +48,7 @@ const menuGroups: MenuGroup[] = [
       { icon: FileText, label: "企业详情", path: "/report" },
       { icon: BarChart3, label: "贸易数据", path: "/trade" },
       { icon: Factory, label: "主产区分析", path: "/production-regions" },
-      { icon: Newspaper, label: "每周分析", path: "/weekly-report" },
+      { icon: Newspaper, label: "每周深度研报", path: "/weekly-reports" },
     ],
   },
   {

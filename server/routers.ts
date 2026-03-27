@@ -876,6 +876,14 @@ export const appRouter = router({
       .query(({ input }) => db.getAnalysisArticles(input?.week, input?.limit)),
     articleById: publicProcedure.input(z.object({ id: z.number() }))
       .query(({ input }) => db.getAnalysisArticleById(input.id)),
+    // 公开周报 API（访客可阅读）
+    weeklyReports: publicProcedure.input(z.object({ page: z.number().optional(), pageSize: z.number().optional() }).optional())
+      .query(({ input }) => db.getWeeklyReports(input?.pageSize || 20, ((input?.page || 1) - 1) * (input?.pageSize || 20))),
+    weeklyReportById: publicProcedure.input(z.object({ id: z.number() }))
+      .query(({ input }) => db.getWeeklyReportById(input.id)),
+    weeklyReportByWeek: publicProcedure.input(z.object({ weekLabel: z.string() }))
+      .query(({ input }) => db.getWeeklyReportByWeek(input.weekLabel)),
+    latestWeeklyReport: publicProcedure.query(() => db.getLatestWeeklyReport()),
   }),
 });
 
