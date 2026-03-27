@@ -38,7 +38,22 @@ export const appRouter = router({
     search: protectedProcedure.input(z.object({
       query: z.string().optional(), continent: z.string().optional(), country: z.string().optional(),
       role: z.string().optional(), chinaOnly: z.boolean().optional(), page: z.number().optional(), pageSize: z.number().optional(),
-    })).query(({ input }) => db.searchCompanies(input)),
+    })).query(async ({ input, ctx }) => {
+      const result = await db.searchCompanies(input);
+      const isGuest = !ctx.user || ctx.user.openId === 'guest';
+      if (isGuest) {
+        result.data = result.data.map((c: any) => ({
+          ...c,
+          companyName: c.companyName ? c.companyName.substring(0, 2) + '***' : '',
+          companyProfile: null,
+          websiteSocial: null,
+          contactInfo: null,
+          purchasePreference: null,
+          contactCount: 0,
+        }));
+      }
+      return result;
+    }),
     getById: protectedProcedure.input(z.object({ id: z.number() })).query(({ input }) => db.getCompanyById(input.id)),
     byContinent: protectedProcedure.input(z.object({ continent: z.string() })).query(({ input }) => db.getCompaniesByContinent(input.continent)),
     byCountry: protectedProcedure.input(z.object({ country: z.string() })).query(({ input }) => db.getCompaniesByCountry(input.country)),
@@ -50,7 +65,22 @@ export const appRouter = router({
       minCreditScore: z.number().optional(), maxCreditScore: z.number().optional(),
       hasContacts: z.boolean().optional(), hasLinkedin: z.boolean().optional(),
       page: z.number().optional(), pageSize: z.number().optional(),
-    })).query(({ input }) => db.advancedSearchCompanies(input)),
+    })).query(async ({ input, ctx }) => {
+      const result = await db.advancedSearchCompanies(input);
+      const isGuest = !ctx.user || ctx.user.openId === 'guest';
+      if (isGuest) {
+        result.data = result.data.map((c: any) => ({
+          ...c,
+          companyName: c.companyName ? c.companyName.substring(0, 2) + '***' : '',
+          companyProfile: null,
+          websiteSocial: null,
+          contactInfo: null,
+          purchasePreference: null,
+          contactCount: 0,
+        }));
+      }
+      return result;
+    }),
     changeHistory: protectedProcedure.input(z.object({ companyId: z.number(), limit: z.number().optional() }))
       .query(({ input }) => db.getCompanyChangeHistory(input.companyId, input.limit || 50)),
   }),

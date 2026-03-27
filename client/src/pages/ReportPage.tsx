@@ -84,7 +84,7 @@ export default function ReportPage() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">报告全文</h1>
+          <h1 className="text-2xl font-bold tracking-tight">企业详情</h1>
           <p className="text-muted-foreground mt-1">{industryConfig.reportPageSubtitle}</p>
         </div>
         <div className="flex items-center gap-2">

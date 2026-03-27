@@ -45,7 +45,7 @@ const menuGroups: MenuGroup[] = [
       { icon: Map, label: "企业地图", path: "/map" },
       { icon: Globe, label: "地区导航", path: "/regions" },
       { icon: Search, label: "全局搜索", path: "/search" },
-      { icon: FileText, label: "报告全文", path: "/report" },
+      { icon: FileText, label: "企业详情", path: "/report" },
       { icon: BarChart3, label: "贸易数据", path: "/trade" },
       { icon: Factory, label: "主产区分析", path: "/production-regions" },
       { icon: Newspaper, label: "每周分析", path: "/weekly-report" },
