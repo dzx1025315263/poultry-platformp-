@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { usePageView } from "@/hooks/usePageView";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +12,7 @@ import {
   Globe, TrendingUp, Ship, Users, Shield, Zap,
   Calendar, FileText, ChevronLeft, ChevronRight,
   BookOpen, AlertTriangle, Download, ArrowLeft,
-  Newspaper, Clock
+  Newspaper, Clock, Eye
 } from "lucide-react";
 import { Streamdown } from "streamdown";
 
@@ -65,6 +67,8 @@ function exportReportText(report: any) {
 }
 
 export default function PublicWeeklyReportPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [, navigate] = useLocation();
   const [selectedReportId, setSelectedReportId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("part1_macroLandscape");
@@ -80,6 +84,16 @@ export default function PublicWeeklyReportPage() {
 
   const activeReport = selectedReportId ? selectedReport : latestReport;
   const isLoading = selectedReportId ? detailLoading : latestLoading;
+
+  // 页面浏览上报
+  const currentReportId = selectedReportId || (latestReport as any)?.id || null;
+  usePageView('/weekly-reports', currentReportId);
+
+  // 管理员：获取周报访问量统计
+  const { data: reportViewStats } = trpc.analytics.reportStats.useQuery(undefined, {
+    enabled: !!isAdmin,
+    retry: false,
+  });
 
   const activePart = PART_CONFIG.find(p => p.key === activeTab);
   const content = activeReport?.[activeTab as keyof typeof activeReport] as string || "";
@@ -190,9 +204,25 @@ export default function PublicWeeklyReportPage() {
                     <span>数据来源：USDA, UNCTAD, Poultry World, 海关总署</span>
                   </p>
                 </div>
-                <Badge variant={activeReport.status === "completed" ? "default" : "secondary"} className="self-start">
-                  {activeReport.status === "completed" ? "已发布" : "生成中"}
-                </Badge>
+                <div className="flex flex-col items-end gap-1.5 self-start">
+                  <Badge variant={activeReport.status === "completed" ? "default" : "secondary"}>
+                    {activeReport.status === "completed" ? "已发布" : "生成中"}
+                  </Badge>
+                  {isAdmin && reportViewStats && (() => {
+                    const stat = reportViewStats.find((s: any) => s.reportId === (activeReport as any)?.id);
+                    return stat ? (
+                      <Badge variant="outline" className="text-[10px] gap-1 bg-slate-50 dark:bg-slate-900/50">
+                        <Eye className="h-2.5 w-2.5" />
+                        {stat.views} 次浏览 · {stat.uniqueVisitors} 访客
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] gap-1 bg-slate-50 dark:bg-slate-900/50">
+                        <Eye className="h-2.5 w-2.5" />
+                        暂无访问记录
+                      </Badge>
+                    );
+                  })()}
+                </div>
               </div>
             </CardContent>
           </Card>

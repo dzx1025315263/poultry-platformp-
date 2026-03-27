@@ -16,6 +16,8 @@ import {
 } from "recharts";
 import { useLocation } from "wouter";
 import { useState } from "react";
+import { usePageView } from "@/hooks/usePageView";
+import { Eye } from "lucide-react";
 
 // 风险类型配置
 const RISK_TYPE_CONFIG: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
@@ -90,10 +92,22 @@ export default function MarketInsightsPage() {
   const [, navigate] = useLocation();
   const [showContactModal, setShowContactModal] = useState(false);
 
+  const isAdmin = user?.role === 'admin';
+
+  // 页面浏览上报
+  usePageView('/');
+
   const { data: dashboard, isLoading } = trpc.marketInsights.dashboard.useQuery();
   const { data: companyStats } = trpc.company.stats.useQuery(undefined, {
     enabled: !!user,
     retry: false,
+  });
+
+  // 管理员统计数据
+  const { data: siteStats } = trpc.analytics.siteStats.useQuery(undefined, {
+    enabled: !!isAdmin,
+    retry: false,
+    refetchInterval: 60000, // 每分钟刷新
   });
 
   // 使用 dashboard 中的 stats（公开数据）
@@ -163,6 +177,39 @@ export default function MarketInsightsPage() {
           </Badge>
         )}
       </div>
+
+      {/* ─── 管理员访问统计 ─── */}
+      {isAdmin && siteStats && (
+        <Card className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/50 dark:to-slate-800/50 border-slate-200 dark:border-slate-700">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-slate-500" />
+                  <span className="text-xs font-medium text-muted-foreground">管理员数据面板</span>
+                </div>
+                <div className="flex items-center gap-6 text-sm">
+                  <div>
+                    <span className="text-muted-foreground text-xs">今日浏览量</span>
+                    <span className="ml-2 font-bold text-lg">{siteStats.todayViews}</span>
+                    <span className="ml-1 text-xs text-muted-foreground">({siteStats.todayUniqueVisitors} 独立访客)</span>
+                  </div>
+                  <div className="h-6 w-px bg-border" />
+                  <div>
+                    <span className="text-muted-foreground text-xs">累计浏览量</span>
+                    <span className="ml-2 font-bold text-lg">{siteStats.totalViews.toLocaleString()}</span>
+                    <span className="ml-1 text-xs text-muted-foreground">({siteStats.totalUniqueVisitors} 独立访客)</span>
+                  </div>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-[10px] gap-1">
+                <Eye className="h-2.5 w-2.5" />
+                实时
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ─── 数据亮点卡片 ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

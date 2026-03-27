@@ -884,6 +884,36 @@ export const appRouter = router({
     weeklyReportByWeek: publicProcedure.input(z.object({ weekLabel: z.string() }))
       .query(({ input }) => db.getWeeklyReportByWeek(input.weekLabel)),
     latestWeeklyReport: publicProcedure.query(() => db.getLatestWeeklyReport()),
+    // 页面浏览上报（公开，所有人可调用）
+    recordView: publicProcedure.input(z.object({
+      pagePath: z.string(),
+      reportId: z.number().optional(),
+      visitorId: z.string(),
+      userAgent: z.string().optional(),
+      referrer: z.string().optional(),
+    })).mutation(({ input, ctx }) => {
+      return db.recordPageView({
+        pagePath: input.pagePath,
+        reportId: input.reportId,
+        visitorId: input.visitorId,
+        isGuest: ctx.user.openId === 'guest',
+        userAgent: input.userAgent,
+        referrer: input.referrer,
+      });
+    }),
+  }),
+
+  // V5.0: 访问统计（管理员专用）
+  analytics: router({
+    siteStats: protectedProcedure.query(async ({ ctx }) => {
+      if (ctx.user.role !== 'admin') throw new Error('Admin only');
+      return db.getSiteViewStats();
+    }),
+    reportStats: protectedProcedure.input(z.object({ reportId: z.number().optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role !== 'admin') throw new Error('Admin only');
+        return db.getReportViewStats(input?.reportId);
+      }),
   }),
 });
 

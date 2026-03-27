@@ -1,4 +1,4 @@
-import { eq, ne, and, like, or, sql, desc, asc, count, isNull, isNotNull } from "drizzle-orm";
+import { eq, ne, and, like, or, sql, desc, asc, count, isNull, isNotNull, gte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users, companies, favorites, teams, teamMembers,
@@ -9,7 +9,8 @@ import {
   teamActivities, companyChangeHistory,
   productionRegions, regionMarketPrices, regionDiseaseAlerts, regionIndustryNews,
   regionSubAreaPrices, regionFeedPrices, regionDiseaseLibrary, regionPolicies, regionCompanyProfiles,
-  weeklyHeadlines, priceSnapshots, riskAlerts, analysisArticles
+  weeklyHeadlines, priceSnapshots, riskAlerts, analysisArticles,
+  pageViews
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1281,4 +1282,86 @@ export async function getMarketInsightsDashboard() {
   ]);
   
   return { headlines, prices, risks, articles, week, stats: companyStats };
+}
+
+
+// ==================== PAGE VIEW ANALYTICS ====================
+
+// 记录页面浏览
+export async function recordPageView(data: {
+  pagePath: string;
+  reportId?: number | null;
+  visitorId: string;
+  isGuest: boolean;
+  userAgent?: string;
+  referrer?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(pageViews).values({
+    pagePath: data.pagePath,
+    reportId: data.reportId || null,
+    visitorId: data.visitorId,
+    isGuest: data.isGuest,
+    userAgent: data.userAgent || null,
+    referrer: data.referrer || null,
+  });
+}
+
+// 获取站点总览统计（管理员用）
+export async function getSiteViewStats() {
+  const db = await getDb();
+  if (!db) return { todayViews: 0, todayUniqueVisitors: 0, totalViews: 0, totalUniqueVisitors: 0 };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [totalResult] = await db.select({
+    totalViews: sql<number>`COUNT(*)`,
+    totalUnique: sql<number>`COUNT(DISTINCT visitor_id)`,
+  }).from(pageViews);
+
+  const [todayResult] = await db.select({
+    todayViews: sql<number>`COUNT(*)`,
+    todayUnique: sql<number>`COUNT(DISTINCT visitor_id)`,
+  }).from(pageViews)
+    .where(gte(pageViews.viewedAt, today));
+
+  return {
+    todayViews: Number(todayResult?.todayViews || 0),
+    todayUniqueVisitors: Number(todayResult?.todayUnique || 0),
+    totalViews: Number(totalResult?.totalViews || 0),
+    totalUniqueVisitors: Number(totalResult?.totalUnique || 0),
+  };
+}
+
+// 获取周报访问量统计（管理员用）
+export async function getReportViewStats(reportId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  if (reportId) {
+    const [result] = await db.select({
+      reportId: pageViews.reportId,
+      views: sql<number>`COUNT(*)`,
+      uniqueVisitors: sql<number>`COUNT(DISTINCT visitor_id)`,
+    }).from(pageViews)
+      .where(eq(pageViews.reportId, reportId))
+      .groupBy(pageViews.reportId);
+    return result ? [{ reportId: result.reportId, views: Number(result.views), uniqueVisitors: Number(result.uniqueVisitors) }] : [];
+  }
+
+  const results = await db.select({
+    reportId: pageViews.reportId,
+    views: sql<number>`COUNT(*)`,
+    uniqueVisitors: sql<number>`COUNT(DISTINCT visitor_id)`,
+  }).from(pageViews)
+    .where(sql`${pageViews.reportId} IS NOT NULL`)
+    .groupBy(pageViews.reportId);
+
+  return results.map(r => ({
+    reportId: r.reportId,
+    views: Number(r.views),
+    uniqueVisitors: Number(r.uniqueVisitors),
+  }));
 }

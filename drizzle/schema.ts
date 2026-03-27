@@ -540,3 +540,16 @@ export const analysisArticles = mysqlTable("analysis_articles", {
   publishedAt: timestamp("published_at").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+
+// ==================== V5.0: 访问统计 Page View Analytics ====================
+export const pageViews = mysqlTable("page_views", {
+  id: int("id").autoincrement().primaryKey(),
+  pagePath: varchar("page_path", { length: 255 }).notNull(),      // e.g. "/", "/weekly-reports", "/search"
+  reportId: int("report_id"),                                      // 关联周报 ID（仅周报页面）
+  visitorId: varchar("visitor_id", { length: 64 }).notNull(),      // 匿名访客标识（基于 fingerprint）
+  isGuest: boolean("is_guest").default(true).notNull(),             // 是否为访客（未登录）
+  userAgent: varchar("user_agent", { length: 500 }),
+  referrer: varchar("referrer", { length: 500 }),
+  viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+});
