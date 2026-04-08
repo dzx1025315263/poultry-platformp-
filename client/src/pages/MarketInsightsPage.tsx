@@ -466,7 +466,7 @@ export default function MarketInsightsPage() {
                                 item.changeDirection === 'up' ? 'text-red-500' :
                                 item.changeDirection === 'down' ? 'text-green-500' : 'text-gray-400'
                               }`}>
-                                {item.changeDirection === 'up' ? '+' : item.changeDirection === 'down' ? '' : ''}{parseFloat(item.changePct).toFixed(1)}%
+                                {item.changeDirection === 'up' ? '+' : item.changeDirection === 'down' ? '-' : ''}{Math.abs(parseFloat(item.changePct)).toFixed(1)}%
                               </span>
                             )}
                           </div>

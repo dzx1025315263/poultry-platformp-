@@ -233,7 +233,7 @@ function SubAreaPricesPanel({ regionCode }: { regionCode: string }) {
                     <TableCell className="text-right font-mono text-xs">${p.priceUsd}</TableCell>
                     <TableCell className="text-center"><TrendIcon trend={p.trend} /></TableCell>
                     <TableCell className={`text-right text-xs font-mono ${parseFloat(p.changePercent || '0') > 0 ? 'text-red-500' : parseFloat(p.changePercent || '0') < 0 ? 'text-green-600' : ''}`}>
-                      {p.changePercent ? `${parseFloat(p.changePercent) > 0 ? '+' : ''}${p.changePercent}%` : '-'}
+                      {p.changePercent ? `${parseFloat(p.changePercent) > 0 ? '+' : parseFloat(p.changePercent) < 0 ? '-' : ''}${Math.abs(parseFloat(p.changePercent)).toFixed(1)}%` : '-'}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{String(p.date || '')}</TableCell>
                   </TableRow>
@@ -300,7 +300,7 @@ function FeedPricesPanel({ regionCode }: { regionCode: string }) {
               <div className="flex items-center gap-1 mt-1">
                 <TrendIcon trend={f.trend} />
                 <span className={`text-xs font-mono ${parseFloat(f.changePercent || '0') > 0 ? 'text-red-500' : parseFloat(f.changePercent || '0') < 0 ? 'text-green-600' : ''}`}>
-                  {f.changePercent ? `${parseFloat(f.changePercent) > 0 ? '+' : ''}${f.changePercent}%` : '-'}
+                  {f.changePercent ? `${parseFloat(f.changePercent) > 0 ? '+' : parseFloat(f.changePercent) < 0 ? '-' : ''}${Math.abs(parseFloat(f.changePercent)).toFixed(1)}%` : '-'}
                 </span>
               </div>
             </CardContent>
@@ -800,7 +800,7 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
                   <div className="flex items-center gap-1 mt-1">
                     <TrendIcon trend={p.trend} />
                     <span className={`text-xs font-mono ${parseFloat(p.changePercent || '0') > 0 ? 'text-red-500' : parseFloat(p.changePercent || '0') < 0 ? 'text-green-600' : ''}`}>
-                      {p.changePercent ? `${parseFloat(p.changePercent) > 0 ? '+' : ''}${p.changePercent}%` : '-'}
+                      {p.changePercent ? `${parseFloat(p.changePercent) > 0 ? '+' : parseFloat(p.changePercent) < 0 ? '-' : ''}${Math.abs(parseFloat(p.changePercent)).toFixed(1)}%` : '-'}
                     </span>
                   </div>
                 </CardContent>
@@ -852,7 +852,7 @@ function RegionDetailPanel({ regionCode }: { regionCode: string }) {
                         <TableCell className="text-right font-mono text-xs">{p.priceUsd ? `$${p.priceUsd}` : '-'}</TableCell>
                         <TableCell className="text-center"><TrendIcon trend={p.trend} /></TableCell>
                         <TableCell className={`text-right text-xs font-mono ${parseFloat(p.changePercent || '0') > 0 ? 'text-red-500' : parseFloat(p.changePercent || '0') < 0 ? 'text-green-600' : ''}`}>
-                          {p.changePercent ? `${parseFloat(p.changePercent) > 0 ? '+' : ''}${p.changePercent}%` : '-'}
+                          {p.changePercent ? `${parseFloat(p.changePercent) > 0 ? '+' : parseFloat(p.changePercent) < 0 ? '-' : ''}${Math.abs(parseFloat(p.changePercent)).toFixed(1)}%` : '-'}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{String(p.date || '')}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{p.source}</TableCell>
