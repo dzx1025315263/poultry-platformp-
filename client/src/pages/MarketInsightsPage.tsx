@@ -43,6 +43,30 @@ const IMPACT_CONFIG: Record<string, { label: string; color: string }> = {
   low: { label: "一般", color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
 };
 
+// 货币符号映射
+const CURRENCY_SYMBOL: Record<string, string> = {
+  USD: '$',
+  CNY: '¥',
+  EUR: '€',
+  BRL: 'R$',
+  THB: '฿',
+  TRY: '₺',
+};
+
+// product 友好标签映射
+const PRODUCT_LABEL: Record<string, string> = {
+  broiler: '白羽肉鸡',
+  whole_chicken: '整鸡',
+  frozen_whole: '冻鸡批发',
+  export_whole: '出口离岸价',
+  frozen_breast: '冻鸡胸肉',
+  chick: '鸡苗',
+  retail_whole: '零售整鸡',
+  wog: '全鸡(WOG)',
+  broiler_live: '活鸡',
+  export_cooked: '熟食出口',
+};
+
 // 产区颜色
 const REGION_COLORS: Record<string, string> = {
   "USA": "#3b82f6",
@@ -120,15 +144,25 @@ export default function MarketInsightsPage() {
     return acc;
   }, {}) || {};
 
-  // 价格柱状图数据（取白羽肉鸡/broiler 价格）
-  const priceChartData = dashboard?.prices
-    ?.filter((p: any) => p.product === 'broiler' || p.product === 'whole_chicken')
-    ?.map((p: any) => ({
+  // 价格柱状图数据（每个产区只取一条，优先 broiler，避免 EU 重复）
+  const priceChartData = (() => {
+    const PRIORITY = ['broiler', 'whole_chicken'];
+    const byRegion: Record<string, any> = {};
+    for (const p of (dashboard?.prices || [])) {
+      if (!PRIORITY.includes(p.product)) continue;
+      const existing = byRegion[p.region];
+      if (!existing || PRIORITY.indexOf(p.product) < PRIORITY.indexOf(existing.product)) {
+        byRegion[p.region] = p;
+      }
+    }
+    return Object.values(byRegion).map((p: any) => ({
       region: p.region,
-      price: parseFloat(p.price) || 0,
+      price: parseFloat(p.priceUsd || p.price) || 0,
+      currency: 'USD',
       changePct: parseFloat(p.changePct) || 0,
       fill: REGION_COLORS[p.region] || '#94a3b8',
-    })) || [];
+    }));
+  })();
 
   if (isLoading) {
     return (
@@ -391,7 +425,10 @@ export default function MarketInsightsPage() {
                     <XAxis dataKey="region" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip
-                      formatter={(value: any) => [`$${Number(value).toFixed(2)}/kg`, '价格']}
+                      formatter={(value: any, _name: any, props: any) => {
+                        const sym = CURRENCY_SYMBOL[props?.payload?.currency] || '$';
+                        return [`${sym}${Number(value).toFixed(2)}/kg`, '价格'];
+                      }}
                       labelFormatter={(label: string) => `产区: ${label}`}
                     />
                     <Bar dataKey="price" radius={[4, 4, 0, 0]}>
@@ -413,9 +450,14 @@ export default function MarketInsightsPage() {
                     <div className="flex items-center gap-4">
                       {items.slice(0, 2).map((item: any, idx: number) => (
                         <div key={idx} className="text-right">
-                          <div className="text-xs text-muted-foreground">{item.product}</div>
+                          <div className="text-xs text-muted-foreground">{PRODUCT_LABEL[item.product] || item.product}</div>
                           <div className="flex items-center gap-1">
-                            <span className="text-sm font-semibold">${parseFloat(item.price).toFixed(2)}</span>
+                            <span className="text-sm font-semibold">
+                              {item.priceUsd
+                                ? `$${parseFloat(item.priceUsd).toFixed(2)}`
+                                : `${CURRENCY_SYMBOL[item.currency] || '$'}${parseFloat(item.price).toFixed(2)}`
+                              }
+                            </span>
                             {item.changeDirection === 'up' && <TrendingUp className="h-3 w-3 text-red-500" />}
                             {item.changeDirection === 'down' && <TrendingDown className="h-3 w-3 text-green-500" />}
                             {item.changeDirection === 'stable' && <Minus className="h-3 w-3 text-gray-400" />}
@@ -424,7 +466,7 @@ export default function MarketInsightsPage() {
                                 item.changeDirection === 'up' ? 'text-red-500' :
                                 item.changeDirection === 'down' ? 'text-green-500' : 'text-gray-400'
                               }`}>
-                                {item.changeDirection === 'up' ? '+' : ''}{parseFloat(item.changePct).toFixed(1)}%
+                                {item.changeDirection === 'up' ? '+' : item.changeDirection === 'down' ? '' : ''}{parseFloat(item.changePct).toFixed(1)}%
                               </span>
                             )}
                           </div>

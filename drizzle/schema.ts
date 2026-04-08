@@ -506,6 +506,7 @@ export const priceSnapshots = mysqlTable("price_snapshots", {
   region: varchar("region", { length: 100 }).notNull(),
   product: varchar("product", { length: 100 }).notNull(),
   price: decimal("price", { precision: 10, scale: 2 }),
+  priceUsd: decimal("price_usd", { precision: 10, scale: 2 }),
   currency: varchar("currency", { length: 10 }).default("USD"),
   unit: varchar("unit", { length: 50 }).default("per kg"),
   changePct: decimal("change_pct", { precision: 5, scale: 2 }),
