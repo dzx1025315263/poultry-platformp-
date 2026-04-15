@@ -915,6 +915,131 @@ export const appRouter = router({
         return db.getReportViewStats(input?.reportId);
       }),
   }),
+
+  // V5.1: 管理员数据批量写入接口
+  dataAdmin: router({
+    // 批量写入行业头条
+    batchUpsertHeadlines: adminProcedure.input(z.object({
+      weekLabel: z.string(),
+      items: z.array(z.object({
+        title: z.string(),
+        summary: z.string().optional(),
+        impactLevel: z.enum(['high', 'medium', 'low']).optional(),
+        category: z.string().optional(),
+        source: z.string().optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertWeeklyHeadlines(input.weekLabel, input.items)),
+
+    // 批量写入风险预警
+    batchUpsertRiskAlerts: adminProcedure.input(z.object({
+      weekLabel: z.string(),
+      items: z.array(z.object({
+        riskType: z.enum(['disease', 'trade_policy', 'exchange_rate', 'supply_chain', 'weather']),
+        severity: z.enum(['critical', 'high', 'medium', 'low']).optional(),
+        title: z.string(),
+        description: z.string().optional(),
+        affectedRegions: z.string().optional(),
+        status: z.enum(['active', 'monitoring', 'resolved']).optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertRiskAlerts(input.weekLabel, input.items)),
+
+    // 批量写入价格快照
+    batchUpsertPriceSnapshots: adminProcedure.input(z.object({
+      weekLabel: z.string(),
+      items: z.array(z.object({
+        region: z.string(),
+        product: z.string(),
+        price: z.string(),
+        priceUsd: z.string().optional(),
+        currency: z.string().optional(),
+        unit: z.string().optional(),
+        changePct: z.string().optional(),
+        changeDirection: z.enum(['up', 'down', 'stable']).optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertPriceSnapshots(input.weekLabel, input.items)),
+
+    // 批量写入主产区价格
+    batchUpsertRegionMarketPrices: adminProcedure.input(z.object({
+      regionCode: z.string(),
+      date: z.string(),
+      items: z.array(z.object({
+        productType: z.string(),
+        productLabel: z.string().optional(),
+        price: z.string(),
+        unit: z.string(),
+        priceUsd: z.string().optional(),
+        trend: z.string().optional(),
+        changePercent: z.string().optional(),
+        source: z.string().optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertRegionMarketPrices(input.regionCode, input.date, input.items)),
+
+    // 批量写入分区域报价
+    batchUpsertRegionSubAreaPrices: adminProcedure.input(z.object({
+      regionCode: z.string(),
+      date: z.string(),
+      items: z.array(z.object({
+        subArea: z.string(),
+        subAreaLocal: z.string().optional(),
+        productType: z.string(),
+        productLabel: z.string().optional(),
+        price: z.string(),
+        unit: z.string(),
+        priceUsd: z.string().optional(),
+        trend: z.string().optional(),
+        changePercent: z.string().optional(),
+        source: z.string().optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertRegionSubAreaPrices(input.regionCode, input.date, input.items)),
+
+    // 批量写入饲料原料价格
+    batchUpsertRegionFeedPrices: adminProcedure.input(z.object({
+      regionCode: z.string(),
+      date: z.string(),
+      items: z.array(z.object({
+        feedType: z.string(),
+        feedLabel: z.string().optional(),
+        price: z.string(),
+        unit: z.string(),
+        priceUsd: z.string().optional(),
+        trend: z.string().optional(),
+        changePercent: z.string().optional(),
+        source: z.string().optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertRegionFeedPrices(input.regionCode, input.date, input.items)),
+
+    // 批量写入疫病预警
+    batchUpsertRegionDiseaseAlerts: adminProcedure.input(z.object({
+      regionCode: z.string(),
+      date: z.string(),
+      items: z.array(z.object({
+        diseaseType: z.string(),
+        location: z.string().optional(),
+        impactLevel: z.enum(['critical', 'high', 'medium', 'low']).optional(),
+        affectedBirds: z.string().optional(),
+        tradeImpact: z.string().optional(),
+        description: z.string().optional(),
+        source: z.string().optional(),
+        sourceUrl: z.string().optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertRegionDiseaseAlerts(input.regionCode, input.date, input.items)),
+
+    // 批量写入产业动态
+    batchUpsertRegionIndustryNews: adminProcedure.input(z.object({
+      regionCode: z.string(),
+      date: z.string(),
+      items: z.array(z.object({
+        category: z.string(),
+        title: z.string(),
+        summary: z.string().optional(),
+        content: z.string().optional(),
+        importance: z.enum(['breaking', 'important', 'normal']).optional(),
+        source: z.string().optional(),
+        sourceUrl: z.string().optional(),
+        tags: z.string().optional(),
+      })),
+    })).mutation(({ input }) => db.batchUpsertRegionIndustryNews(input.regionCode, input.date, input.items)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

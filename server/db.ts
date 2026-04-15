@@ -1365,3 +1365,211 @@ export async function getReportViewStats(reportId?: number) {
     uniqueVisitors: Number(r.uniqueVisitors),
   }));
 }
+
+// ==================== V5.1: 管理员批量数据写入接口 ====================
+
+// 批量写入行业头条（先清除该周旧数据）
+export async function batchUpsertWeeklyHeadlines(weekLabel: string, items: Array<{
+  title: string; summary?: string; impactLevel?: 'high' | 'medium' | 'low';
+  category?: string; source?: string;
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(weeklyHeadlines).where(eq(weeklyHeadlines.week, weekLabel));
+  if (items.length === 0) return { count: 0 };
+  await db.insert(weeklyHeadlines).values(items.map(item => ({
+    week: weekLabel,
+    title: item.title,
+    summary: item.summary ?? null,
+    impactLevel: item.impactLevel ?? 'medium',
+    category: item.category ?? null,
+    source: item.source ?? null,
+    publishedAt: new Date(),
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
+
+// 批量写入风险预警（先清除该周旧数据）
+export async function batchUpsertRiskAlerts(weekLabel: string, items: Array<{
+  riskType: 'disease' | 'trade_policy' | 'exchange_rate' | 'supply_chain' | 'weather';
+  severity?: 'critical' | 'high' | 'medium' | 'low';
+  title: string; description?: string; affectedRegions?: string;
+  status?: 'active' | 'monitoring' | 'resolved';
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(riskAlerts).where(eq(riskAlerts.week, weekLabel));
+  if (items.length === 0) return { count: 0 };
+  await db.insert(riskAlerts).values(items.map(item => ({
+    week: weekLabel,
+    riskType: item.riskType,
+    severity: item.severity ?? 'medium',
+    title: item.title,
+    description: item.description ?? null,
+    affectedRegions: item.affectedRegions ?? null,
+    status: item.status ?? 'active',
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
+
+// 批量写入价格快照（先清除该周旧数据）
+export async function batchUpsertPriceSnapshots(weekLabel: string, items: Array<{
+  region: string; product: string; price: string; priceUsd?: string;
+  currency?: string; unit?: string; changePct?: string;
+  changeDirection?: 'up' | 'down' | 'stable';
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(priceSnapshots).where(eq(priceSnapshots.week, weekLabel));
+  if (items.length === 0) return { count: 0 };
+  await db.insert(priceSnapshots).values(items.map(item => ({
+    week: weekLabel,
+    region: item.region,
+    product: item.product,
+    price: item.price as any,
+    priceUsd: (item.priceUsd ?? null) as any,
+    currency: item.currency ?? 'USD',
+    unit: item.unit ?? 'per kg',
+    changePct: (item.changePct ?? null) as any,
+    changeDirection: item.changeDirection ?? 'stable',
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
+
+// 批量写入主产区价格（先清除该产区该日期旧数据）
+export async function batchUpsertRegionMarketPrices(regionCode: string, date: string, items: Array<{
+  productType: string; productLabel?: string; price: string; unit: string;
+  priceUsd?: string; trend?: string; changePercent?: string; source?: string;
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(regionMarketPrices).where(
+    and(eq(regionMarketPrices.regionCode, regionCode), eq(regionMarketPrices.date, date))
+  );
+  if (items.length === 0) return { count: 0 };
+  await db.insert(regionMarketPrices).values(items.map(item => ({
+    regionCode, date,
+    productType: item.productType,
+    productLabel: item.productLabel ?? null,
+    price: item.price,
+    unit: item.unit,
+    priceUsd: item.priceUsd ?? null,
+    trend: item.trend ?? 'stable',
+    changePercent: item.changePercent ?? null,
+    source: item.source ?? null,
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
+
+// 批量写入分区域报价
+export async function batchUpsertRegionSubAreaPrices(regionCode: string, date: string, items: Array<{
+  subArea: string; subAreaLocal?: string; productType: string; productLabel?: string;
+  price: string; unit: string; priceUsd?: string; trend?: string; changePercent?: string; source?: string;
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(regionSubAreaPrices).where(
+    and(eq(regionSubAreaPrices.regionCode, regionCode), eq(regionSubAreaPrices.date, date))
+  );
+  if (items.length === 0) return { count: 0 };
+  await db.insert(regionSubAreaPrices).values(items.map(item => ({
+    regionCode, date,
+    subArea: item.subArea,
+    subAreaLocal: item.subAreaLocal ?? null,
+    productType: item.productType,
+    productLabel: item.productLabel ?? null,
+    price: item.price,
+    unit: item.unit,
+    priceUsd: item.priceUsd ?? null,
+    trend: item.trend ?? 'stable',
+    changePercent: item.changePercent ?? null,
+    source: item.source ?? null,
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
+
+// 批量写入饲料原料价格
+export async function batchUpsertRegionFeedPrices(regionCode: string, date: string, items: Array<{
+  feedType: string; feedLabel?: string; price: string; unit: string;
+  priceUsd?: string; trend?: string; changePercent?: string; source?: string;
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(regionFeedPrices).where(
+    and(eq(regionFeedPrices.regionCode, regionCode), eq(regionFeedPrices.date, date))
+  );
+  if (items.length === 0) return { count: 0 };
+  await db.insert(regionFeedPrices).values(items.map(item => ({
+    regionCode, date,
+    feedType: item.feedType,
+    feedLabel: item.feedLabel ?? null,
+    price: item.price,
+    unit: item.unit,
+    priceUsd: item.priceUsd ?? null,
+    trend: item.trend ?? 'stable',
+    changePercent: item.changePercent ?? null,
+    source: item.source ?? null,
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
+
+// 批量写入疫病预警
+export async function batchUpsertRegionDiseaseAlerts(regionCode: string, date: string, items: Array<{
+  diseaseType: string; location?: string;
+  impactLevel?: 'critical' | 'high' | 'medium' | 'low';
+  affectedBirds?: string; tradeImpact?: string; description?: string;
+  source?: string; sourceUrl?: string;
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(regionDiseaseAlerts).where(
+    and(eq(regionDiseaseAlerts.regionCode, regionCode), eq(regionDiseaseAlerts.date, date))
+  );
+  if (items.length === 0) return { count: 0 };
+  await db.insert(regionDiseaseAlerts).values(items.map(item => ({
+    regionCode, date,
+    diseaseType: item.diseaseType,
+    location: item.location ?? null,
+    impactLevel: item.impactLevel ?? 'medium',
+    affectedBirds: item.affectedBirds ?? null,
+    tradeImpact: item.tradeImpact ?? null,
+    description: item.description ?? null,
+    source: item.source ?? null,
+    sourceUrl: item.sourceUrl ?? null,
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
+
+// 批量写入产业动态
+export async function batchUpsertRegionIndustryNews(regionCode: string, date: string, items: Array<{
+  category: string; title: string; summary?: string; content?: string;
+  importance?: 'breaking' | 'important' | 'normal';
+  source?: string; sourceUrl?: string; tags?: string;
+}>) {
+  const db = await getDb();
+  if (!db) throw new Error('DB not available');
+  await db.delete(regionIndustryNews).where(
+    and(eq(regionIndustryNews.regionCode, regionCode), eq(regionIndustryNews.date, date))
+  );
+  if (items.length === 0) return { count: 0 };
+  await db.insert(regionIndustryNews).values(items.map(item => ({
+    regionCode, date,
+    category: item.category,
+    title: item.title,
+    summary: item.summary ?? null,
+    content: item.content ?? null,
+    importance: item.importance ?? 'normal',
+    source: item.source ?? null,
+    sourceUrl: item.sourceUrl ?? null,
+    tags: item.tags ?? null,
+    createdAt: new Date(),
+  })));
+  return { count: items.length };
+}
