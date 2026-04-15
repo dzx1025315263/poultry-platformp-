@@ -74,6 +74,17 @@ async function startServer() {
           result = await db.batchUpsertRegionDiseaseAlerts(params.regionCode, params.date, params.items); break;
         case "batchUpsertRegionIndustryNews":
           result = await db.batchUpsertRegionIndustryNews(params.regionCode, params.date, params.items); break;
+        case "upsertWeeklyReport": {
+          const { weekLabel, reportDate, ...reportData } = params;
+          const existing = await db.getWeeklyReportByWeek(weekLabel);
+          let reportId = existing?.id;
+          if (!reportId) {
+            reportId = await db.createWeeklyReport({ weekLabel, reportDate: new Date(reportDate || Date.now()) });
+          }
+          await db.updateWeeklyReport(reportId, { ...reportData, status: 'completed' });
+          result = { id: reportId, weekLabel, status: 'completed' };
+          break;
+        }
         default:
           return res.status(400).json({ error: `Unknown action: ${action}` });
       }
