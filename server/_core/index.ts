@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerWeeklyReportCron } from "../weeklyReportCron";
 import { sdk } from "./sdk";
+import * as db from "../db";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -46,6 +47,43 @@ async function startServer() {
     const loginUrl = sdk.getFeishuAuthUrl(redirectUri, "/");
     res.redirect(302, loginUrl);
   });
+  // V5.1: 内部数据写入 API（API Key 认证，供 Manus 沙盒直接调用）
+  const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY || "ugg-internal-2026-manus";
+  app.post("/api/internal/data", express.json({ limit: "10mb" }), async (req, res) => {
+    const apiKey = req.headers["x-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+    if (apiKey !== INTERNAL_API_KEY) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { action, ...params } = req.body;
+    try {
+      let result: any;
+      switch (action) {
+        case "batchUpsertWeeklyHeadlines":
+          result = await db.batchUpsertWeeklyHeadlines(params.weekLabel, params.items); break;
+        case "batchUpsertRiskAlerts":
+          result = await db.batchUpsertRiskAlerts(params.weekLabel, params.items); break;
+        case "batchUpsertPriceSnapshots":
+          result = await db.batchUpsertPriceSnapshots(params.weekLabel, params.items); break;
+        case "batchUpsertRegionMarketPrices":
+          result = await db.batchUpsertRegionMarketPrices(params.regionCode, params.date, params.items); break;
+        case "batchUpsertRegionSubAreaPrices":
+          result = await db.batchUpsertRegionSubAreaPrices(params.regionCode, params.date, params.items); break;
+        case "batchUpsertRegionFeedPrices":
+          result = await db.batchUpsertRegionFeedPrices(params.regionCode, params.date, params.items); break;
+        case "batchUpsertRegionDiseaseAlerts":
+          result = await db.batchUpsertRegionDiseaseAlerts(params.regionCode, params.date, params.items); break;
+        case "batchUpsertRegionIndustryNews":
+          result = await db.batchUpsertRegionIndustryNews(params.regionCode, params.date, params.items); break;
+        default:
+          return res.status(400).json({ error: `Unknown action: ${action}` });
+      }
+      res.json({ success: true, result });
+    } catch (err: any) {
+      console.error("[InternalAPI] Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // 注册每周报告自动生成服务
   registerWeeklyReportCron(app);
   // tRPC API
